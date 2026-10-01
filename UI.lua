@@ -1039,12 +1039,14 @@ local function buildPlayerListPanel(parent, onSelect)
     end)
 
     local buttons = {}
+    local selectedButton = nil
 
     local function refresh()
         for _, b in ipairs(buttons) do
             pcall(function() b:Destroy() end)
         end
         buttons = {}
+        selectedButton = nil
 
         local list = {}
         for _, p in ipairs(Players:GetPlayers()) do
@@ -1080,20 +1082,21 @@ local function buildPlayerListPanel(parent, onSelect)
             local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 6); pad.Parent = btn
 
             btn.MouseButton1Click:Connect(function()
-                for _, b in ipairs(buttons) do
-                    if b:IsA("TextButton") then b.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end
+                if selectedButton and selectedButton.Parent then
+                    selectedButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
                 end
                 btn.BackgroundColor3 = Color3.fromRGB(70, 90, 130)
-                if onSelect then onSelect(p) end
+                selectedButton = btn
+                if onSelect then onSelect(p.Name) end
             end)
 
             table.insert(buttons, btn)
         end
     end
 
-    Players.PlayerAdded:Connect(function() task.wait(0.3); refresh() end)
-    Players.PlayerRemoving:Connect(function() task.wait(0.3); refresh() end)
-    task.spawn(function() task.wait(0.3); refresh() end)
+    Players.PlayerAdded:Connect(function() refresh() end)
+    Players.PlayerRemoving:Connect(function() refresh() end)
+    refresh()
 
     return panel, refresh
 end
@@ -1125,7 +1128,7 @@ local ScriptHubs = {
     { name = "Kitty Hub (190 Games)",        url = "https://rscripts.net/raw/kitty-hub-190-games-keyless_1723323186468_Gak3vicgC5.txt" },
     { name = "Redz Hub (Multi-Game)",        url = "https://raw.githubusercontent.com/tlredz/Scripts/refs/heads/main/main.luau" },
     { name = "Vidas Hub (Multi-Game)",       url = "https://pastebin.com/raw/1K0n4K7q" },
-    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklauss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
+    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklausss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
     { name = "SP Hub (Multi-Game)",          url = "https://raw.githubusercontent.com/as6cd0/SP_Hub/refs/heads/main/Loader" },
     { name = "Speed Hub X (Multi-Game)",     url = "https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua" },
     { name = "BlackCat48Hub (8 Games)",      url = "https://raw.githubusercontent.com/ytDragonV6bayku/BlackCat48HubMainScriptLoader/main/MainScriptLoader" },
@@ -1402,11 +1405,11 @@ WarrantTab.BackgroundTransparency = 1
 WarrantTab.Visible = false
 WarrantTab.Parent = ContentArea
 
-local selectedWarrantPlayer = nil
+local selectedWarrantName = nil
 
-buildPlayerListPanel(WarrantTab, function(p)
-    selectedWarrantPlayer = p
-    warrantSelectedLabel.Text = "Selected: " .. p.Name
+buildPlayerListPanel(WarrantTab, function(name)
+    selectedWarrantName = name
+    warrantSelectedLabel.Text = "Selected: " .. name
 end)
 
 local warrantRight = Instance.new("Frame")
@@ -1472,7 +1475,7 @@ fileWarrantBtn.Parent = warrantRight
 corner(fileWarrantBtn, 6)
 
 fileWarrantBtn.MouseButton1Click:Connect(function()
-    if not selectedWarrantPlayer then
+    if not selectedWarrantName then
         showToast("Select a player first", Color3.fromRGB(140, 50, 50), 2)
         return
     end
@@ -1484,8 +1487,7 @@ fileWarrantBtn.MouseButton1Click:Connect(function()
 
     local warrant = {
         id = newWarrantId(),
-        targetName = selectedWarrantPlayer.Name,
-        targetUserId = selectedWarrantPlayer.UserId,
+        targetName = selectedWarrantName,
         reason = reason,
         filedBy = LocalPlayer.DisplayName,
         filedByUser = LocalPlayer.Name,
@@ -1510,7 +1512,7 @@ fileWarrantBtn.MouseButton1Click:Connect(function()
     })
 
     warrantReasonBox.Text = ""
-    showToast("Warrant filed for " .. selectedWarrantPlayer.Name, Color3.fromRGB(140, 100, 30), 2)
+    showToast("Warrant filed for " .. selectedWarrantName, Color3.fromRGB(140, 100, 30), 2)
     if refreshPending then refreshPending() end
     if refreshRecordsFor then refreshRecordsFor() end
 end)
@@ -1769,7 +1771,7 @@ refreshWanted = function()
             any = true
             local item = Instance.new("Frame")
             item.Size = UDim2.new(1, -6, 0, 90)
-            item.BackgroundColor3 = Color3.fromRGB(50, 30, 30)
+            item.BackgroundColor3 = Color3.fromRGB(60, 40, 20)
             item.BorderSizePixel = 0
             item.Parent = WantedList
             corner(item, 6)
@@ -1861,12 +1863,8 @@ RecordsTab.BackgroundTransparency = 1
 RecordsTab.Visible = false
 RecordsTab.Parent = ContentArea
 
-local selectedRecordsPlayer = nil
-
-buildPlayerListPanel(RecordsTab, function(p)
-    selectedRecordsPlayer = p
-    recordsSelectedLabel.Text = "Records: " .. p.Name
-    if refreshRecordsFor then refreshRecordsFor() end
+buildPlayerListPanel(RecordsTab, function(name)
+    renderRecordsFor(name)
 end)
 
 local recordsRight = Instance.new("Frame")
@@ -1902,35 +1900,14 @@ recordsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     RecordsList.CanvasSize = UDim2.new(0, 0, 0, recordsLayout.AbsoluteContentSize.Y + 8)
 end)
 
-local function buildRecordText(r)
-    if r.kind == "filed" then
-        return "APB\nWarrant filed: " .. tostring(r.reason) ..
-               "\nBy " .. tostring(r.filerUser or r.filerDisplay) .. " " .. tostring(r.timestamp)
-    elseif r.kind == "approved" then
-        return "APB\nWarrant approved | Reason: " .. tostring(r.reason) ..
-               " Filed by: " .. tostring(r.filerDisplay) ..
-               " | Approved by: " .. tostring(r.reviewerDisplay) ..
-               "\nBy " .. tostring(r.reviewerUser or r.reviewerDisplay) .. "\n" .. tostring(r.timestamp)
-    elseif r.kind == "denied" then
-        return "APB\nWarrant denied | Reason: " .. tostring(r.reviewReason or r.reason) ..
-               " Filed by: " .. tostring(r.filerDisplay) ..
-               " | Denied by: " .. tostring(r.reviewerDisplay) ..
-               "\nBy " .. tostring(r.reviewerUser or r.reviewerDisplay) .. "\n" .. tostring(r.timestamp)
-    elseif r.kind == "cleared" then
-        return "APB\nWarrant cleared | Reason: " .. tostring(r.reviewReason or r.reason) ..
-               " | Cleared by: " .. tostring(r.reviewerDisplay) ..
-               "\nBy " .. tostring(r.reviewerUser or r.reviewerDisplay) .. "\n" .. tostring(r.timestamp)
-    else
-        return "APB\nUnknown record"
-    end
-end
-
-refreshRecordsFor = function()
+function renderRecordsFor(name)
     for _, c in ipairs(RecordsList:GetChildren()) do
         if c:IsA("GuiObject") then c:Destroy() end
     end
+    RecordsList.CanvasPosition = Vector2.new(0, 0)
 
-    if not selectedRecordsPlayer then
+    if not name or name == "" then
+        recordsSelectedLabel.Text = "Select a player"
         local lbl = Instance.new("TextLabel")
         lbl.Size = UDim2.new(1, -6, 0, 40)
         lbl.BackgroundTransparency = 1
@@ -1943,24 +1920,53 @@ refreshRecordsFor = function()
         return
     end
 
+    recordsSelectedLabel.Text = "Records: " .. name
+
     local matching = {}
     for _, r in ipairs(Records) do
-        if r.targetName == selectedRecordsPlayer.Name then
+        if r.targetName == name then
             table.insert(matching, r)
         end
     end
+
+    table.sort(matching, function(a, b)
+        return (a.id or 0) > (b.id or 0)
+    end)
 
     if #matching == 0 then
         local lbl = Instance.new("TextLabel")
         lbl.Size = UDim2.new(1, -6, 0, 40)
         lbl.BackgroundTransparency = 1
-        lbl.Text = "No records for " .. selectedRecordsPlayer.Name
+        lbl.Text = "No records for " .. name
         lbl.TextColor3 = Color3.fromRGB(150, 150, 150)
         lbl.TextSize = 12
         lbl.Font = Enum.Font.Gotham
         lbl.TextWrapped = true
         lbl.Parent = RecordsList
         return
+    end
+
+    local function buildRecordText(r)
+        if r.kind == "filed" then
+            return "APB\nWarrant filed: " .. tostring(r.reason) ..
+                   "\nBy " .. tostring(r.filerUser or r.filerDisplay) .. " " .. tostring(r.timestamp)
+        elseif r.kind == "approved" then
+            return "APB\nWarrant approved | Reason: " .. tostring(r.reason) ..
+                   " Filed by: " .. tostring(r.filerDisplay) ..
+                   " | Approved by: " .. tostring(r.reviewerDisplay) ..
+                   "\nBy " .. tostring(r.reviewerUser or r.reviewerDisplay) .. "\n" .. tostring(r.timestamp)
+        elseif r.kind == "denied" then
+            return "APB\nWarrant denied | Reason: " .. tostring(r.reviewReason or r.reason) ..
+                   " Filed by: " .. tostring(r.filerDisplay) ..
+                   " | Denied by: " .. tostring(r.reviewerDisplay) ..
+                   "\nBy " .. tostring(r.reviewerUser or r.reviewerDisplay) .. "\n" .. tostring(r.timestamp)
+        elseif r.kind == "cleared" then
+            return "APB\nWarrant cleared | Reason: " .. tostring(r.reviewReason or r.reason) ..
+                   " | Cleared by: " .. tostring(r.reviewerDisplay) ..
+                   "\nBy " .. tostring(r.reviewerUser or r.reviewerDisplay) .. "\n" .. tostring(r.timestamp)
+        else
+            return "APB\nUnknown record"
+        end
     end
 
     for _, r in ipairs(matching) do
@@ -1991,7 +1997,17 @@ refreshRecordsFor = function()
         txt.Parent = item
     end
 end
-refreshRecordsFor()
+
+refreshRecordsFor = function()
+    local name = nil
+    local lbl = recordsSelectedLabel.Text
+    if lbl and lbl:sub(1, 9) == "Records: " then
+        name = lbl:sub(10)
+    end
+    renderRecordsFor(name)
+end
+
+renderRecordsFor(nil)
 
 local GameTab = Instance.new("Frame")
 GameTab.Size = UDim2.new(1, 0, 1, 0)
@@ -2441,12 +2457,9 @@ local function refreshTPList()
     end
 end
 
-Players.PlayerAdded:Connect(function() task.wait(0.5); refreshTPList() end)
-Players.PlayerRemoving:Connect(function() task.wait(0.5); refreshTPList() end)
-task.spawn(function()
-    task.wait(0.5)
-    refreshTPList()
-end)
+Players.PlayerAdded:Connect(function() refreshTPList() end)
+Players.PlayerRemoving:Connect(function() refreshTPList() end)
+refreshTPList()
 
 local CharTab = Instance.new("Frame")
 CharTab.Size = UDim2.new(1, 0, 1, 0)
