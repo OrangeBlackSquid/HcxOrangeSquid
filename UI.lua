@@ -1345,7 +1345,7 @@ local gameState = {
     birdW = 26,
     birdH = 18,
     birdX = 60,
-    gravity = 1000,
+    gravity = 500,
     flapPower = -230,
     hasStarted = false,
 }
