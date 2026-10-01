@@ -28,6 +28,7 @@ pcall(function()
         if c then
             local h = c:FindFirstChild("CustomESP"); if h then h:Destroy() end
             local b = c:FindFirstChild("CustomESPGui"); if b then b:Destroy() end
+            local w = c:FindFirstChild("WantedLabel"); if w then w:Destroy() end
         end
     end
 end)
@@ -58,12 +59,41 @@ local CustomScripts = loadJsonFile("custom_scripts.json")
 local GameScripts   = loadJsonFile("games_scripts.json")
 local Favorites     = loadJsonFile("favorites.json")
 local ChatMessages  = loadJsonFile("chat_messages.json")
+local Warrants      = loadJsonFile("warrants.json")
 
 local function isFav(key) return Favorites[key] == true end
 local function toggleFav(key)
     if Favorites[key] then Favorites[key] = nil else Favorites[key] = true end
     saveJsonFile("favorites.json", Favorites)
 end
+
+local function getTimestamp()
+    local ok, result = pcall(function() return os.date("%d/%m %H:%M") end)
+    if ok and result then return result end
+    return "??/?? ??:??"
+end
+
+local warrantCounter = 0
+for _, w in ipairs(Warrants) do
+    if type(w) == "table" and type(w.id) == "number" and w.id > warrantCounter then
+        warrantCounter = w.id
+    end
+end
+local function newWarrantId()
+    warrantCounter = warrantCounter + 1
+    return warrantCounter
+end
+
+local function hasApprovedWarrant(playerName)
+    for _, w in ipairs(Warrants) do
+        if w.targetName == playerName and w.status == "approved" then
+            return w
+        end
+    end
+    return nil
+end
+
+local wantedLabels = {}
 
 local ConsoleLogs = {}
 local MAX_LOGS = 500
@@ -244,14 +274,8 @@ local function sendChatMessage(message, channels)
         if channelName == "Server" then
             local ok, err = pcall(function()
                 local general = TextChatService:FindFirstChild("TextChannels")
-                if general then
-                    general = general:FindFirstChild("RBXGeneral")
-                end
-                if general then
-                    general:SendAsync(message)
-                else
-                    error("RBXGeneral channel not found")
-                end
+                if general then general = general:FindFirstChild("RBXGeneral") end
+                if general then general:SendAsync(message) else error("RBXGeneral channel not found") end
             end)
             if ok then sent = sent + 1 else table.insert(errors, "Server: " .. tostring(err)) end
 
@@ -262,15 +286,10 @@ local function sendChatMessage(message, channels)
                 local globalChannel = nil
                 for _, ch in ipairs(channelsFolder:GetChildren()) do
                     if ch:IsA("TextChannel") and (string.find(string.lower(ch.Name), "global") or string.find(string.lower(ch.Name), "cross")) then
-                        globalChannel = ch
-                        break
+                        globalChannel = ch; break
                     end
                 end
-                if globalChannel then
-                    globalChannel:SendAsync(message)
-                else
-                    error("Global channel not found (may not be available in this game)")
-                end
+                if globalChannel then globalChannel:SendAsync(message) else error("Global channel not found") end
             end)
             if ok then sent = sent + 1 else table.insert(errors, "Global: " .. tostring(err)) end
 
@@ -281,15 +300,10 @@ local function sendChatMessage(message, channels)
                 local friendChannel = nil
                 for _, ch in ipairs(channelsFolder:GetChildren()) do
                     if ch:IsA("TextChannel") and (string.find(string.lower(ch.Name), "friend") or string.find(string.lower(ch.Name), "whisper")) then
-                        friendChannel = ch
-                        break
+                        friendChannel = ch; break
                     end
                 end
-                if friendChannel then
-                    friendChannel:SendAsync(message)
-                else
-                    error("Friends channel not found (may not be available in this game)")
-                end
+                if friendChannel then friendChannel:SendAsync(message) else error("Friends channel not found") end
             end)
             if ok then sent = sent + 1 else table.insert(errors, "Friends: " .. tostring(err)) end
         end
@@ -298,9 +312,7 @@ local function sendChatMessage(message, channels)
     if sent > 0 then
         showToast("Sent to " .. sent .. " channel(s)", Color3.fromRGB(60, 120, 60), 2)
     end
-    for _, e in ipairs(errors) do
-        warn("[Chat] " .. e)
-    end
+    for _, e in ipairs(errors) do warn("[Chat] " .. e) end
 end
 
 local buildOk, buildErr = pcall(function()
@@ -317,6 +329,11 @@ local function corner(p, r)
     c.Parent = p
     return c
 end
+
+local refreshPending
+local refreshWanted
+local refreshRecordsFor
+local openReviewDialog
 
 local ToastContainer = Instance.new("Frame")
 ToastContainer.Size = UDim2.new(1, 0, 0, 150)
@@ -429,7 +446,7 @@ TabBar.BorderSizePixel = 0
 TabBar.ScrollBarThickness = 2
 TabBar.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
 TabBar.ScrollingDirection = Enum.ScrollingDirection.X
-TabBar.CanvasSize = UDim2.new(0, 1100, 0, 0)
+TabBar.CanvasSize = UDim2.new(0, 1600, 0, 0)
 TabBar.Parent = MainFrame
 corner(TabBar, 6)
 
@@ -984,6 +1001,99 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
     return { page = page, refresh = refresh }
 end
 
+local function buildPlayerListPanel(parent, onSelect)
+    local panel = Instance.new("ScrollingFrame")
+    panel.Size = UDim2.new(0, 135, 1, 0)
+    panel.Position = UDim2.new(0, 0, 0, 0)
+    panel.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+    panel.BorderSizePixel = 0
+    panel.ScrollBarThickness = 3
+    panel.CanvasSize = UDim2.new(0, 0, 0, 0)
+    panel.Parent = parent
+    corner(panel, 6)
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 2)
+    layout.Parent = panel
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        panel.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 6)
+    end)
+
+    local buttons = {}
+
+    local function refresh()
+        for _, b in ipairs(buttons) do
+            pcall(function() b:Destroy() end)
+        end
+        buttons = {}
+
+        local list = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then table.insert(list, p) end
+        end
+        table.sort(list, function(a, b) return a.Name:lower() < b.Name:lower() end)
+
+        if #list == 0 then
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1, -6, 0, 30)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = "No other players"
+            lbl.TextColor3 = Color3.fromRGB(140, 140, 140)
+            lbl.TextSize = 11
+            lbl.Font = Enum.Font.Gotham
+            lbl.Parent = panel
+            table.insert(buttons, lbl)
+            return
+        end
+
+        for _, p in ipairs(list) do
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -6, 0, 28)
+            btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            btn.Text = p.Name
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn.TextSize = 12
+            btn.Font = Enum.Font.Gotham
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            btn.TextTruncate = Enum.TextTruncate.AtEnd
+            btn.Parent = panel
+            corner(btn, 4)
+            local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 6); pad.Parent = btn
+
+            btn.MouseButton1Click:Connect(function()
+                for _, b in ipairs(buttons) do
+                    if b:IsA("TextButton") then b.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end
+                end
+                btn.BackgroundColor3 = Color3.fromRGB(70, 90, 130)
+                if onSelect then onSelect(p) end
+            end)
+
+            table.insert(buttons, btn)
+        end
+    end
+
+    Players.PlayerAdded:Connect(function() task.wait(0.3); refresh() end)
+    Players.PlayerRemoving:Connect(function() task.wait(0.3); refresh() end)
+    task.spawn(function() task.wait(0.3); refresh() end)
+
+    return panel, refresh
+end
+
+local function makeSmallBtn(parent, text, x, y, w, h, color, onClick)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, w, 0, h)
+    b.Position = UDim2.new(0, x, 0, y)
+    b.BackgroundColor3 = color
+    b.Text = text
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.TextSize = 12
+    b.Font = Enum.Font.GothamBold
+    b.Parent = parent
+    corner(b, 5)
+    b.MouseButton1Click:Connect(onClick)
+    return b
+end
+
 local ScriptHubs = {
     { name = "Spiem Hub (36 Games)",        url = "https://raw.githubusercontent.com/perfectusmim1/spiemhub/refs/heads/main/loader" },
     { name = "Kagu Hub (100+ Games)",       url = "https://raw.githubusercontent.com/Kaguya11/KaguHubRework/main/KaguHub" },
@@ -1266,6 +1376,558 @@ buildListPage(
     "+ Add Message", "No messages added yet.\nClick '+ Add Message' above.",
     "chat"
 )
+
+local WarrantTab = Instance.new("Frame")
+WarrantTab.Size = UDim2.new(1, 0, 1, 0)
+WarrantTab.BackgroundTransparency = 1
+WarrantTab.Visible = false
+WarrantTab.Parent = ContentArea
+
+local selectedWarrantPlayer = nil
+
+local warrantLeftPanel, _ = buildPlayerListPanel(WarrantTab, function(p)
+    selectedWarrantPlayer = p
+    warrantSelectedLabel.Text = "Selected: " .. p.Name
+end)
+
+local warrantRight = Instance.new("Frame")
+warrantRight.Size = UDim2.new(1, -143, 1, 0)
+warrantRight.Position = UDim2.new(0, 143, 0, 0)
+warrantRight.BackgroundTransparency = 1
+warrantRight.Parent = WarrantTab
+
+local warrantSelectedLabel = Instance.new("TextLabel")
+warrantSelectedLabel.Size = UDim2.new(1, 0, 0, 26)
+warrantSelectedLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+warrantSelectedLabel.Text = "Select a player"
+warrantSelectedLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+warrantSelectedLabel.TextSize = 12
+warrantSelectedLabel.Font = Enum.Font.GothamBold
+warrantSelectedLabel.TextTruncate = Enum.TextTruncate.AtEnd
+warrantSelectedLabel.Parent = warrantRight
+corner(warrantSelectedLabel, 6)
+
+local warrantReasonLabel = Instance.new("TextLabel")
+warrantReasonLabel.Size = UDim2.new(1, 0, 0, 16)
+warrantReasonLabel.Position = UDim2.new(0, 0, 0, 32)
+warrantReasonLabel.BackgroundTransparency = 1
+warrantReasonLabel.Text = "Reason:"
+warrantReasonLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+warrantReasonLabel.TextSize = 11
+warrantReasonLabel.Font = Enum.Font.GothamBold
+warrantReasonLabel.TextXAlignment = Enum.TextXAlignment.Left
+warrantReasonLabel.Parent = warrantRight
+
+local warrantReasonBox = Instance.new("TextBox")
+warrantReasonBox.Size = UDim2.new(1, 0, 0, 140)
+warrantReasonBox.Position = UDim2.new(0, 0, 0, 52)
+warrantReasonBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+warrantReasonBox.PlaceholderText = "Type reason..."
+warrantReasonBox.Text = ""
+warrantReasonBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+warrantReasonBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+warrantReasonBox.TextSize = 12
+warrantReasonBox.Font = Enum.Font.Gotham
+warrantReasonBox.TextXAlignment = Enum.TextXAlignment.Left
+warrantReasonBox.TextYAlignment = Enum.TextYAlignment.Top
+warrantReasonBox.TextWrapped = true
+warrantReasonBox.MultiLine = true
+warrantReasonBox.ClearTextOnFocus = false
+warrantReasonBox.Parent = warrantRight
+corner(warrantReasonBox, 6)
+local wrbPad = Instance.new("UIPadding")
+wrbPad.PaddingLeft = UDim.new(0, 8)
+wrbPad.PaddingRight = UDim.new(0, 8)
+wrbPad.PaddingTop = UDim.new(0, 6)
+wrbPad.Parent = warrantReasonBox
+
+local fileWarrantBtn = Instance.new("TextButton")
+fileWarrantBtn.Size = UDim2.new(1, 0, 0, 40)
+fileWarrantBtn.Position = UDim2.new(0, 0, 0, 202)
+fileWarrantBtn.BackgroundColor3 = Color3.fromRGB(220, 130, 40)
+fileWarrantBtn.Text = "File Warrant"
+fileWarrantBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+fileWarrantBtn.TextSize = 14
+fileWarrantBtn.Font = Enum.Font.GothamBold
+fileWarrantBtn.Parent = warrantRight
+corner(fileWarrantBtn, 6)
+
+fileWarrantBtn.MouseButton1Click:Connect(function()
+    if not selectedWarrantPlayer then
+        showToast("Select a player first", Color3.fromRGB(140, 50, 50), 2)
+        return
+    end
+    local reason = warrantReasonBox.Text
+    if reason == "" then
+        showToast("Enter a reason", Color3.fromRGB(140, 50, 50), 2)
+        return
+    end
+
+    local warrant = {
+        id = newWarrantId(),
+        targetName = selectedWarrantPlayer.Name,
+        targetUserId = selectedWarrantPlayer.UserId,
+        reason = reason,
+        filedBy = LocalPlayer.DisplayName,
+        filedAt = getTimestamp(),
+        status = "pending",
+        reviewedBy = nil,
+        reviewReason = nil,
+        reviewedAt = nil,
+    }
+    table.insert(Warrants, warrant)
+    saveJsonFile("warrants.json", Warrants)
+    warrantReasonBox.Text = ""
+    showToast("Warrant filed for " .. selectedWarrantPlayer.Name, Color3.fromRGB(140, 100, 30), 2)
+    if refreshPending then refreshPending() end
+    if refreshRecordsFor then refreshRecordsFor() end
+end)
+
+local PendingTab = Instance.new("Frame")
+PendingTab.Size = UDim2.new(1, 0, 1, 0)
+PendingTab.BackgroundTransparency = 1
+PendingTab.Visible = false
+PendingTab.Parent = ContentArea
+
+local PendingList = Instance.new("ScrollingFrame")
+PendingList.Size = UDim2.new(1, 0, 1, 0)
+PendingList.BackgroundTransparency = 1
+PendingList.BorderSizePixel = 0
+PendingList.ScrollBarThickness = 4
+PendingList.CanvasSize = UDim2.new(0, 0, 0, 0)
+PendingList.Parent = PendingTab
+
+local pendingLayout = Instance.new("UIListLayout")
+pendingLayout.Padding = UDim.new(0, 6)
+pendingLayout.Parent = PendingList
+pendingLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    PendingList.CanvasSize = UDim2.new(0, 0, 0, pendingLayout.AbsoluteContentSize.Y + 8)
+end)
+
+openReviewDialog = function(warrantId, action)
+    local form = Instance.new("Frame")
+    form.Size = UDim2.new(1, -30, 0, 210)
+    form.Position = UDim2.new(0, 15, 0.5, -105)
+    form.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    form.BorderSizePixel = 0
+    form.ZIndex = 120
+    form.Parent = MainFrame
+    corner(form, 8)
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Size = UDim2.new(1, -20, 0, 24)
+    titleLbl.Position = UDim2.new(0, 10, 0, 6)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text = action == "approved" and "Approve Warrant" or "Deny Warrant"
+    titleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLbl.TextSize = 16
+    titleLbl.Font = Enum.Font.GothamBold
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    titleLbl.ZIndex = 121
+    titleLbl.Parent = form
+
+    local rl = Instance.new("TextLabel")
+    rl.Size = UDim2.new(1, -20, 0, 16)
+    rl.Position = UDim2.new(0, 10, 0, 36)
+    rl.BackgroundTransparency = 1
+    rl.Text = "Reason:"
+    rl.TextColor3 = Color3.fromRGB(180, 180, 180)
+    rl.TextSize = 12
+    rl.Font = Enum.Font.GothamBold
+    rl.TextXAlignment = Enum.TextXAlignment.Left
+    rl.ZIndex = 121
+    rl.Parent = form
+
+    local reasonBox = Instance.new("TextBox")
+    reasonBox.Size = UDim2.new(1, -20, 0, 90)
+    reasonBox.Position = UDim2.new(0, 10, 0, 56)
+    reasonBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    reasonBox.PlaceholderText = "Type reason..."
+    reasonBox.Text = ""
+    reasonBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    reasonBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+    reasonBox.TextSize = 13
+    reasonBox.Font = Enum.Font.Gotham
+    reasonBox.TextXAlignment = Enum.TextXAlignment.Left
+    reasonBox.TextYAlignment = Enum.TextYAlignment.Top
+    reasonBox.TextWrapped = true
+    reasonBox.MultiLine = true
+    reasonBox.ClearTextOnFocus = false
+    reasonBox.ZIndex = 121
+    reasonBox.Parent = form
+    corner(reasonBox, 6)
+    local rbPad = Instance.new("UIPadding")
+    rbPad.PaddingLeft = UDim.new(0, 8)
+    rbPad.PaddingRight = UDim.new(0, 8)
+    rbPad.PaddingTop = UDim.new(0, 4)
+    rbPad.Parent = reasonBox
+
+    local cancelBtn = Instance.new("TextButton")
+    cancelBtn.Size = UDim2.new(0.5, -15, 0, 32)
+    cancelBtn.Position = UDim2.new(0, 10, 1, -42)
+    cancelBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    cancelBtn.Text = "Cancel"
+    cancelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    cancelBtn.TextSize = 14
+    cancelBtn.Font = Enum.Font.Gotham
+    cancelBtn.ZIndex = 121
+    cancelBtn.Parent = form
+    corner(cancelBtn, 6)
+
+    local confirmBtn = Instance.new("TextButton")
+    confirmBtn.Size = UDim2.new(0.5, -15, 0, 32)
+    confirmBtn.Position = UDim2.new(0.5, 5, 1, -42)
+    confirmBtn.BackgroundColor3 = action == "approved" and Color3.fromRGB(60, 140, 60) or Color3.fromRGB(150, 50, 50)
+    confirmBtn.Text = action == "approved" and "Approve" or "Deny"
+    confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    confirmBtn.TextSize = 14
+    confirmBtn.Font = Enum.Font.GothamBold
+    confirmBtn.ZIndex = 121
+    confirmBtn.Parent = form
+    corner(confirmBtn, 6)
+
+    cancelBtn.MouseButton1Click:Connect(function() form:Destroy() end)
+    confirmBtn.MouseButton1Click:Connect(function()
+        local reviewReason = reasonBox.Text
+        if reviewReason == "" then
+            showToast("Enter a reason", Color3.fromRGB(140, 50, 50), 2)
+            return
+        end
+
+        local found = nil
+        for _, w in ipairs(Warrants) do
+            if w.id == warrantId then found = w break end
+        end
+        if not found then form:Destroy() return end
+
+        found.status = action
+        found.reviewedBy = LocalPlayer.DisplayName
+        found.reviewReason = reviewReason
+        found.reviewedAt = getTimestamp()
+        saveJsonFile("warrants.json", Warrants)
+
+        form:Destroy()
+        showToast("Warrant " .. action, action == "approved" and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(140, 50, 50), 2)
+        if refreshPending then refreshPending() end
+        if refreshWanted then refreshWanted() end
+        if refreshRecordsFor then refreshRecordsFor() end
+    end)
+end
+
+refreshPending = function()
+    for _, c in ipairs(PendingList:GetChildren()) do
+        if c:IsA("GuiObject") then c:Destroy() end
+    end
+
+    local any = false
+    for _, w in ipairs(Warrants) do
+        if w.status == "pending" then
+            any = true
+            local item = Instance.new("Frame")
+            item.Size = UDim2.new(1, -6, 0, 130)
+            item.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            item.BorderSizePixel = 0
+            item.Parent = PendingList
+            corner(item, 6)
+
+            local targetLbl = Instance.new("TextLabel")
+            targetLbl.Size = UDim2.new(1, -12, 0, 20)
+            targetLbl.Position = UDim2.new(0, 6, 0, 6)
+            targetLbl.BackgroundTransparency = 1
+            targetLbl.Text = "Target: " .. tostring(w.targetName)
+            targetLbl.TextColor3 = Color3.fromRGB(255, 200, 100)
+            targetLbl.TextSize = 14
+            targetLbl.Font = Enum.Font.GothamBold
+            targetLbl.TextXAlignment = Enum.TextXAlignment.Left
+            targetLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            targetLbl.Parent = item
+
+            local reasonLbl = Instance.new("TextLabel")
+            reasonLbl.Size = UDim2.new(1, -12, 0, 34)
+            reasonLbl.Position = UDim2.new(0, 6, 0, 28)
+            reasonLbl.BackgroundTransparency = 1
+            reasonLbl.Text = "Reason: " .. tostring(w.reason)
+            reasonLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+            reasonLbl.TextSize = 12
+            reasonLbl.Font = Enum.Font.Gotham
+            reasonLbl.TextXAlignment = Enum.TextXAlignment.Left
+            reasonLbl.TextYAlignment = Enum.TextYAlignment.Top
+            reasonLbl.TextWrapped = true
+            reasonLbl.Parent = item
+
+            local metaLbl = Instance.new("TextLabel")
+            metaLbl.Size = UDim2.new(1, -12, 0, 16)
+            metaLbl.Position = UDim2.new(0, 6, 0, 66)
+            metaLbl.BackgroundTransparency = 1
+            metaLbl.Text = "By " .. tostring(w.filedBy) .. " | " .. tostring(w.filedAt)
+            metaLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+            metaLbl.TextSize = 11
+            metaLbl.Font = Enum.Font.Gotham
+            metaLbl.TextXAlignment = Enum.TextXAlignment.Left
+            metaLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            metaLbl.Parent = item
+
+            local wid = w.id
+            makeSmallBtn(item, "Approve", 6, 0, 100, 32, Color3.fromRGB(60, 140, 60), function()
+                openReviewDialog(wid, "approved")
+            end).Position = UDim2.new(0, 6, 1, -38)
+
+            makeSmallBtn(item, "Deny", 0, 0, 100, 32, Color3.fromRGB(150, 50, 50), function()
+                openReviewDialog(wid, "denied")
+            end).Position = UDim2.new(1, -106, 1, -38)
+        end
+    end
+
+    if not any then
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -6, 0, 60)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "No pending warrants."
+        lbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+        lbl.TextSize = 13
+        lbl.Font = Enum.Font.Gotham
+        lbl.Parent = PendingList
+    end
+end
+refreshPending()
+
+local WantedTab = Instance.new("Frame")
+WantedTab.Size = UDim2.new(1, 0, 1, 0)
+WantedTab.BackgroundTransparency = 1
+WantedTab.Visible = false
+WantedTab.Parent = ContentArea
+
+local WantedList = Instance.new("ScrollingFrame")
+WantedList.Size = UDim2.new(1, 0, 1, 0)
+WantedList.BackgroundTransparency = 1
+WantedList.BorderSizePixel = 0
+WantedList.ScrollBarThickness = 4
+WantedList.CanvasSize = UDim2.new(0, 0, 0, 0)
+WantedList.Parent = WantedTab
+
+local wantedLayout = Instance.new("UIListLayout")
+wantedLayout.Padding = UDim.new(0, 6)
+wantedLayout.Parent = WantedList
+wantedLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    WantedList.CanvasSize = UDim2.new(0, 0, 0, wantedLayout.AbsoluteContentSize.Y + 8)
+end)
+
+refreshWanted = function()
+    for _, c in ipairs(WantedList:GetChildren()) do
+        if c:IsA("GuiObject") then c:Destroy() end
+    end
+
+    local any = false
+    for _, w in ipairs(Warrants) do
+        if w.status == "approved" then
+            any = true
+            local item = Instance.new("Frame")
+            item.Size = UDim2.new(1, -6, 0, 90)
+            item.BackgroundColor3 = Color3.fromRGB(50, 30, 30)
+            item.BorderSizePixel = 0
+            item.Parent = WantedList
+            corner(item, 6)
+
+            local nameLbl = Instance.new("TextLabel")
+            nameLbl.Size = UDim2.new(1, -100, 0, 22)
+            nameLbl.Position = UDim2.new(0, 8, 0, 6)
+            nameLbl.BackgroundTransparency = 1
+            nameLbl.Text = "WANTED: " .. tostring(w.targetName)
+            nameLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
+            nameLbl.TextSize = 14
+            nameLbl.Font = Enum.Font.GothamBold
+            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            nameLbl.Parent = item
+
+            local reasonLbl = Instance.new("TextLabel")
+            reasonLbl.Size = UDim2.new(1, -16, 0, 50)
+            reasonLbl.Position = UDim2.new(0, 8, 0, 30)
+            reasonLbl.BackgroundTransparency = 1
+            reasonLbl.Text = "Reason: " .. tostring(w.reviewReason or w.reason)
+            reasonLbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+            reasonLbl.TextSize = 12
+            reasonLbl.Font = Enum.Font.Gotham
+            reasonLbl.TextXAlignment = Enum.TextXAlignment.Left
+            reasonLbl.TextYAlignment = Enum.TextYAlignment.Top
+            reasonLbl.TextWrapped = true
+            reasonLbl.Parent = item
+
+            local wid = w.id
+            local clearBtn = Instance.new("TextButton")
+            clearBtn.Size = UDim2.new(0, 80, 0, 24)
+            clearBtn.Position = UDim2.new(1, -88, 0, 6)
+            clearBtn.BackgroundColor3 = Color3.fromRGB(120, 60, 60)
+            clearBtn.Text = "Clear"
+            clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            clearBtn.TextSize = 12
+            clearBtn.Font = Enum.Font.GothamBold
+            clearBtn.Parent = item
+            corner(clearBtn, 4)
+
+            clearBtn.MouseButton1Click:Connect(function()
+                for _, tw in ipairs(Warrants) do
+                    if tw.id == wid then
+                        tw.status = "cleared"
+                        break
+                    end
+                end
+                saveJsonFile("warrants.json", Warrants)
+                showToast("Cleared warrant for " .. tostring(w.targetName), Color3.fromRGB(100, 80, 80), 2)
+                refreshWanted()
+                if refreshRecordsFor then refreshRecordsFor() end
+            end)
+        end
+    end
+
+    if not any then
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -6, 0, 60)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "No wanted players."
+        lbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+        lbl.TextSize = 13
+        lbl.Font = Enum.Font.Gotham
+        lbl.Parent = WantedList
+    end
+end
+refreshWanted()
+
+local RecordsTab = Instance.new("Frame")
+RecordsTab.Size = UDim2.new(1, 0, 1, 0)
+RecordsTab.BackgroundTransparency = 1
+RecordsTab.Visible = false
+RecordsTab.Parent = ContentArea
+
+local selectedRecordsPlayer = nil
+
+buildPlayerListPanel(RecordsTab, function(p)
+    selectedRecordsPlayer = p
+    recordsSelectedLabel.Text = "Records: " .. p.Name
+    if refreshRecordsFor then refreshRecordsFor() end
+end)
+
+local recordsRight = Instance.new("Frame")
+recordsRight.Size = UDim2.new(1, -143, 1, 0)
+recordsRight.Position = UDim2.new(0, 143, 0, 0)
+recordsRight.BackgroundTransparency = 1
+recordsRight.Parent = RecordsTab
+
+local recordsSelectedLabel = Instance.new("TextLabel")
+recordsSelectedLabel.Size = UDim2.new(1, 0, 0, 26)
+recordsSelectedLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+recordsSelectedLabel.Text = "Select a player"
+recordsSelectedLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+recordsSelectedLabel.TextSize = 12
+recordsSelectedLabel.Font = Enum.Font.GothamBold
+recordsSelectedLabel.TextTruncate = Enum.TextTruncate.AtEnd
+recordsSelectedLabel.Parent = recordsRight
+corner(recordsSelectedLabel, 6)
+
+local RecordsList = Instance.new("ScrollingFrame")
+RecordsList.Size = UDim2.new(1, 0, 1, -32)
+RecordsList.Position = UDim2.new(0, 0, 0, 32)
+RecordsList.BackgroundTransparency = 1
+RecordsList.BorderSizePixel = 0
+RecordsList.ScrollBarThickness = 4
+RecordsList.CanvasSize = UDim2.new(0, 0, 0, 0)
+RecordsList.Parent = recordsRight
+
+local recordsLayout = Instance.new("UIListLayout")
+recordsLayout.Padding = UDim.new(0, 6)
+recordsLayout.Parent = RecordsList
+recordsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    RecordsList.CanvasSize = UDim2.new(0, 0, 0, recordsLayout.AbsoluteContentSize.Y + 8)
+end)
+
+refreshRecordsFor = function()
+    for _, c in ipairs(RecordsList:GetChildren()) do
+        if c:IsA("GuiObject") then c:Destroy() end
+    end
+
+    if not selectedRecordsPlayer then
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -6, 0, 40)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "Select a player to view their records."
+        lbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+        lbl.TextSize = 12
+        lbl.Font = Enum.Font.Gotham
+        lbl.TextWrapped = true
+        lbl.Parent = RecordsList
+        return
+    end
+
+    local records = {}
+    for _, w in ipairs(Warrants) do
+        if w.targetName == selectedRecordsPlayer.Name then
+            table.insert(records, w)
+        end
+    end
+
+    if #records == 0 then
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -6, 0, 40)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "No records for " .. selectedRecordsPlayer.Name
+        lbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+        lbl.TextSize = 12
+        lbl.Font = Enum.Font.Gotham
+        lbl.TextWrapped = true
+        lbl.Parent = RecordsList
+        return
+    end
+
+    for _, w in ipairs(records) do
+        local text
+        if w.status == "pending" then
+            text = "APB\nWarrant filed: " .. tostring(w.reason) ..
+                   "\nBy " .. tostring(w.filedBy) .. " " .. tostring(w.filedAt)
+        elseif w.status == "approved" then
+            text = "APB\nWarrant approved | Reason: " .. tostring(w.reason) ..
+                   " Filed by: " .. tostring(w.filedBy) ..
+                   " | Approved by: " .. tostring(w.reviewedBy) ..
+                   "\nBy " .. tostring(w.filedBy) .. "\n" .. tostring(w.filedAt)
+        elseif w.status == "denied" then
+            text = "APB\nWarrant denied | Reason: " .. tostring(w.reviewReason or w.reason) ..
+                   " Filed by: " .. tostring(w.filedBy) ..
+                   " | Denied by: " .. tostring(w.reviewedBy) ..
+                   "\nBy " .. tostring(w.filedBy) .. "\n" .. tostring(w.filedAt)
+        elseif w.status == "cleared" then
+            text = "APB\nWarrant cleared | Reason: " .. tostring(w.reviewReason or w.reason) ..
+                   "\nBy " .. tostring(w.reviewedBy or w.filedBy) .. " " .. tostring(w.reviewedAt or w.filedAt)
+        else
+            text = "APB\nUnknown record"
+        end
+
+        local item = Instance.new("Frame")
+        item.Size = UDim2.new(1, -6, 0, 130)
+        item.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        item.BorderSizePixel = 0
+        item.Parent = RecordsList
+        corner(item, 6)
+
+        local pad = Instance.new("UIPadding")
+        pad.PaddingTop = UDim.new(0, 8)
+        pad.PaddingBottom = UDim.new(0, 8)
+        pad.PaddingLeft = UDim.new(0, 10)
+        pad.PaddingRight = UDim.new(0, 10)
+        pad.Parent = item
+
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, 0, 1, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = text
+        txt.TextColor3 = Color3.fromRGB(220, 220, 220)
+        txt.TextSize = 11
+        txt.Font = Enum.Font.Code
+        txt.TextXAlignment = Enum.TextXAlignment.Left
+        txt.TextYAlignment = Enum.TextYAlignment.Top
+        txt.TextWrapped = true
+        txt.Parent = item
+    end
+end
+refreshRecordsFor()
 
 local GameTab = Instance.new("Frame")
 GameTab.Size = UDim2.new(1, 0, 1, 0)
@@ -2272,6 +2934,10 @@ local tabDefs = {
     { name = "Hubs",      frame = HubsTab,      color = Color3.fromRGB(140, 100, 60) },
     { name = "Games",     frame = GamesTab,     color = Color3.fromRGB(120, 100, 60) },
     { name = "Chat",      frame = ChatTab,      color = Color3.fromRGB(80, 120, 120) },
+    { name = "Warrant",   frame = WarrantTab,   color = Color3.fromRGB(200, 130, 50) },
+    { name = "Pending",   frame = PendingTab,   color = Color3.fromRGB(180, 160, 60) },
+    { name = "Wanted",    frame = WantedTab,    color = Color3.fromRGB(150, 50, 50) },
+    { name = "Records",   frame = RecordsTab,   color = Color3.fromRGB(80, 120, 130) },
     { name = "Game",      frame = GameTab,      color = Color3.fromRGB(140, 70, 140) },
     { name = "ESP",       frame = ESPTab,       color = Color3.fromRGB(120, 70, 70) },
     { name = "Teleport",  frame = TPTab,        color = Color3.fromRGB(70, 120, 120) },
@@ -2293,11 +2959,20 @@ local function selectTab(i)
     if tabDefs[i] and tabDefs[i].frame == ConsoleTab then
         if consoleUIUpdater then pcall(consoleUIUpdater) end
     end
+    if tabDefs[i] and tabDefs[i].frame == PendingTab then
+        if refreshPending then pcall(refreshPending) end
+    end
+    if tabDefs[i] and tabDefs[i].frame == WantedTab then
+        if refreshWanted then pcall(refreshWanted) end
+    end
+    if tabDefs[i] and tabDefs[i].frame == RecordsTab then
+        if refreshRecordsFor then pcall(refreshRecordsFor) end
+    end
 end
 
 for i, def in ipairs(tabDefs) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 78, 0, 26)
+    btn.Size = UDim2.new(0, 74, 0, 26)
     btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     btn.Text = def.name
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -2310,7 +2985,7 @@ for i, def in ipairs(tabDefs) do
     tabButtons[i] = btn
 end
 
-TabBar.CanvasSize = UDim2.new(0, #tabDefs * 82 + 8, 0, 0)
+TabBar.CanvasSize = UDim2.new(0, #tabDefs * 78 + 8, 0, 0)
 selectTab(1)
 
 local Icon = Instance.new("TextButton")
@@ -2375,7 +3050,12 @@ if not buildOk then
     warn("[Executor UI] Build error: " .. tostring(buildErr))
 end
 
-Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
+Players.PlayerRemoving:Connect(function(p)
+    removeESP(p)
+    local lbl = wantedLabels[p]
+    if lbl then pcall(function() lbl:Destroy() end) end
+    wantedLabels[p] = nil
+end)
 
 RunService.RenderStepped:Connect(function()
     if not ESP.enabled then return end
@@ -2477,6 +3157,60 @@ UserInputService.InputChanged:Connect(function(input)
         if not cam then return end
         local delta = input.Delta
         cam.CFrame = cam.CFrame * CFrame.Angles(0, -delta.X * 0.005, 0) * CFrame.Angles(-delta.Y * 0.005, 0, 0)
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player == LocalPlayer then continue end
+            local char = player.Character
+            local w = hasApprovedWarrant(player.Name)
+            local existing = wantedLabels[player]
+
+            if not w or not char then
+                if existing then
+                    pcall(function() existing:Destroy() end)
+                    wantedLabels[player] = nil
+                end
+            else
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if not hrp then
+                    if existing then
+                        pcall(function() existing:Destroy() end)
+                        wantedLabels[player] = nil
+                    end
+                else
+                    if existing and existing.Parent ~= char then
+                        pcall(function() existing:Destroy() end)
+                        wantedLabels[player] = nil
+                        existing = nil
+                    end
+                    if not existing then
+                        local bg = Instance.new("BillboardGui")
+                        bg.Name = "WantedLabel"
+                        bg.Size = UDim2.new(0, 110, 0, 24)
+                        bg.StudsOffset = Vector3.new(0, 5, 0)
+                        bg.AlwaysOnTop = true
+                        bg.Adornee = hrp
+                        bg.Parent = char
+
+                        local lbl = Instance.new("TextLabel")
+                        lbl.Size = UDim2.new(1, 0, 1, 0)
+                        lbl.BackgroundTransparency = 1
+                        lbl.Text = "WANTED"
+                        lbl.TextColor3 = Color3.fromRGB(255, 60, 60)
+                        lbl.TextStrokeTransparency = 0
+                        lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        lbl.TextSize = 20
+                        lbl.Font = Enum.Font.GothamBold
+                        lbl.Parent = bg
+
+                        wantedLabels[player] = bg
+                    end
+                end
+            end
+        end
     end
 end)
 
