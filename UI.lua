@@ -996,7 +996,7 @@ local ScriptHubs = {
     { name = "Kitty Hub (190 Games)",        url = "https://rscripts.net/raw/kitty-hub-190-games-keyless_1723323186468_Gak3vicgC5.txt" },
     { name = "Redz Hub (Multi-Game)",        url = "https://raw.githubusercontent.com/tlredz/Scripts/refs/heads/main/main.luau" },
     { name = "Vidas Hub (Multi-Game)",       url = "https://pastebin.com/raw/1K0n4K7q" },
-    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklausss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
+    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklauss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
     { name = "SP Hub (Multi-Game)",          url = "https://raw.githubusercontent.com/as6cd0/SP_Hub/refs/heads/main/Loader" },
     { name = "Speed Hub X (Multi-Game)",     url = "https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua" },
     { name = "BlackCat48Hub (8 Games)",      url = "https://raw.githubusercontent.com/ytDragonV6bayku/BlackCat48HubMainScriptLoader/main/MainScriptLoader" },
@@ -1277,7 +1277,7 @@ local gameArea = Instance.new("Frame")
 gameArea.Name = "GameArea"
 gameArea.Size = UDim2.new(1, 0, 1, -40)
 gameArea.Position = UDim2.new(0, 0, 0, 0)
-gameArea.BackgroundColor3 = Color3.fromRGB(150, 200, 235)
+gameArea.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
 gameArea.BorderSizePixel = 0
 gameArea.ClipsDescendants = true
 gameArea.Parent = GameTab
@@ -1344,8 +1344,8 @@ local gameState = {
     birdW = 22,
     birdH = 22,
     birdX = 60,
-    gravity = 900,
-    flapPower = -320,
+    gravity = 1100,
+    flapPower = -260,
     hasStarted = false,
 }
 
