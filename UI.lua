@@ -6,6 +6,7 @@ local HttpService       = game:GetService("HttpService")
 local TweenService      = game:GetService("TweenService")
 local Lighting          = game:GetService("Lighting")
 local TeleportService   = game:GetService("TeleportService")
+local LogService        = game:GetService("LogService")
 local LocalPlayer       = Players.LocalPlayer
 
 local UI_PARENT = game.CoreGui
@@ -63,29 +64,27 @@ local function toggleFav(key)
 end
 
 local ConsoleLogs = {}
-local MAX_LOGS = 200
+local MAX_LOGS = 500
 local consoleUIUpdater = nil
 
 local function addConsoleLog(level, message)
-    table.insert(ConsoleLogs, { level = level, text = message })
+    if not message or message == "" then return end
+    table.insert(ConsoleLogs, { level = level, text = tostring(message) })
     if #ConsoleLogs > MAX_LOGS then table.remove(ConsoleLogs, 1) end
     if consoleUIUpdater then pcall(consoleUIUpdater) end
 end
 
-local _oldPrint = print
-local _oldWarn  = warn
-print = function(...)
-    local parts = {}
-    for i = 1, select("#", ...) do parts[i] = tostring(select(i, ...)) end
-    _oldPrint(...)
-    pcall(addConsoleLog, "print", table.concat(parts, " "))
-end
-warn = function(...)
-    local parts = {}
-    for i = 1, select("#", ...) do parts[i] = tostring(select(i, ...)) end
-    _oldWarn(...)
-    pcall(addConsoleLog, "warn", table.concat(parts, " "))
-end
+pcall(function()
+    LogService.MessageOut:Connect(function(message, messageType)
+        local level = "info"
+        if messageType == Enum.MessageType.MessageWarning then level = "warn"
+        elseif messageType == Enum.MessageType.MessageError then level = "error"
+        elseif messageType == Enum.MessageType.MessageOutput then level = "print"
+        elseif messageType == Enum.MessageType.MessageInfo then level = "info"
+        end
+        addConsoleLog(level, message)
+    end)
+end)
 
 local ESP = {
     enabled = false, color = Color3.fromRGB(255, 50, 50),
@@ -176,7 +175,6 @@ local CharSettings = { walkSpeed = nil, jumpPower = nil }
 local InfiniteJump = { enabled = false }
 local Noclip       = { enabled = false }
 local Freecam      = { enabled = false, speed = 50, saved = nil }
-local fullbrightOn = false
 local Fullbright   = { saved = nil }
 
 LocalPlayer.CharacterAdded:Connect(function(char)
@@ -356,7 +354,7 @@ TabBar.BorderSizePixel = 0
 TabBar.ScrollBarThickness = 2
 TabBar.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
 TabBar.ScrollingDirection = Enum.ScrollingDirection.X
-TabBar.CanvasSize = UDim2.new(0, 800, 0, 0)
+TabBar.CanvasSize = UDim2.new(0, 900, 0, 0)
 TabBar.Parent = MainFrame
 corner(TabBar, 6)
 
@@ -828,7 +826,7 @@ local ScriptHubs = {
     { name = "Kitty Hub (190 Games)",        url = "https://rscripts.net/raw/kitty-hub-190-games-keyless_1723323186468_Gak3vicgC5.txt" },
     { name = "Redz Hub (Multi-Game)",        url = "https://raw.githubusercontent.com/tlredz/Scripts/refs/heads/main/main.luau" },
     { name = "Vidas Hub (Multi-Game)",       url = "https://pastebin.com/raw/1K0n4K7q" },
-    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklausss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
+    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklauss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
     { name = "SP Hub (Multi-Game)",          url = "https://raw.githubusercontent.com/as6cd0/SP_Hub/refs/heads/main/Loader" },
     { name = "Speed Hub X (Multi-Game)",     url = "https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua" },
     { name = "BlackCat48Hub (8 Games)",      url = "https://raw.githubusercontent.com/ytDragonV6bayku/BlackCat48HubMainScriptLoader/main/MainScriptLoader" },
@@ -1527,7 +1525,7 @@ UtilityTab.Visible = false
 UtilityTab.Parent = ContentArea
 
 local UtilList = Instance.new("ScrollingFrame")
-UtilList.Size = UDim2.new(1, 0, 1, -180)
+UtilList.Size = UDim2.new(1, 0, 1, 0)
 UtilList.BackgroundTransparency = 1
 UtilList.BorderSizePixel = 0
 UtilList.ScrollBarThickness = 4
@@ -1543,7 +1541,6 @@ utilLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 makeCheckRow(UtilList, "Fullbright", false, function(on)
-    fullbrightOn = on
     if on then
         if not Fullbright.saved then
             Fullbright.saved = {
@@ -1585,25 +1582,22 @@ makeSliderRow(UtilList, "FPS Cap", 30, 360, 60, false,
         showToast("FPS cap reset to 60", Color3.fromRGB(90, 90, 90), 1.5)
     end)
 
-local consHeader = Instance.new("TextLabel")
-consHeader.Size = UDim2.new(1, -6, 0, 20)
-consHeader.BackgroundTransparency = 1
-consHeader.Text = "Console Output:"
-consHeader.TextColor3 = Color3.fromRGB(180, 180, 180)
-consHeader.TextSize = 13
-consHeader.Font = Enum.Font.GothamBold
-consHeader.TextXAlignment = Enum.TextXAlignment.Left
-consHeader.Parent = UtilityTab
-consHeader.Position = UDim2.new(0, 0, 1, -180)
+local ConsoleTab = Instance.new("Frame")
+ConsoleTab.Size = UDim2.new(1, 0, 1, 0)
+ConsoleTab.BackgroundTransparency = 1
+ConsoleTab.Visible = false
+ConsoleTab.Parent = ContentArea
 
 local ConsoleList = Instance.new("ScrollingFrame")
-ConsoleList.Size = UDim2.new(1, 0, 1, -180)
-ConsoleList.Position = UDim2.new(0, 0, 0, 180)
+ConsoleList.Size = UDim2.new(1, 0, 1, -40)
+ConsoleList.Position = UDim2.new(0, 0, 0, 0)
 ConsoleList.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 ConsoleList.BorderSizePixel = 0
 ConsoleList.ScrollBarThickness = 3
+ConsoleList.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
 ConsoleList.CanvasSize = UDim2.new(0, 0, 0, 0)
-ConsoleList.Parent = UtilityTab
+ConsoleList.Parent = ConsoleTab
+corner(ConsoleList, 6)
 
 local consoleLayout = Instance.new("UIListLayout")
 consoleLayout.Padding = UDim.new(0, 1)
@@ -1612,46 +1606,73 @@ consoleLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     ConsoleList.CanvasSize = UDim2.new(0, 0, 0, consoleLayout.AbsoluteContentSize.Y + 4)
 end)
 
+local consolePad = Instance.new("UIPadding")
+consolePad.PaddingLeft = UDim.new(0, 6)
+consolePad.PaddingTop = UDim.new(0, 4)
+consolePad.Parent = ConsoleList
+
 consoleUIUpdater = function()
     if not ConsoleList or not ConsoleList.Parent then return end
     for _, c in ipairs(ConsoleList:GetChildren()) do
         if c:IsA("GuiObject") then c:Destroy() end
     end
-    for _, log in ipairs(ConsoleLogs) do
+    if #ConsoleLogs == 0 then
         local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1, -6, 0, 16)
+        lbl.Size = UDim2.new(1, -6, 0, 20)
         lbl.BackgroundTransparency = 1
-        lbl.Text = "[" .. log.level .. "] " .. log.text
-        lbl.TextColor3 = log.level == "warn" and Color3.fromRGB(255, 200, 100) or Color3.fromRGB(200, 220, 200)
+        lbl.Text = "(no output yet)"
+        lbl.TextColor3 = Color3.fromRGB(120, 120, 120)
         lbl.TextSize = 11
         lbl.Font = Enum.Font.Code
         lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.TextTruncate = Enum.TextTruncate.AtEnd
         lbl.Parent = ConsoleList
+    else
+        for _, log in ipairs(ConsoleLogs) do
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1, -6, 0, 16)
+            lbl.BackgroundTransparency = 1
+            lbl.Text = "[" .. log.level .. "] " .. log.text
+            if log.level == "warn" then
+                lbl.TextColor3 = Color3.fromRGB(255, 200, 100)
+            elseif log.level == "error" then
+                lbl.TextColor3 = Color3.fromRGB(255, 110, 110)
+            else
+                lbl.TextColor3 = Color3.fromRGB(200, 220, 200)
+            end
+            lbl.TextSize = 11
+            lbl.Font = Enum.Font.Code
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.TextTruncate = Enum.TextTruncate.AtEnd
+            lbl.Parent = ConsoleList
+        end
+        task.defer(function()
+            pcall(function()
+                ConsoleList.CanvasPosition = Vector2.new(0, ConsoleList.AbsoluteCanvasSize.Y)
+            end)
+        end)
     end
-    ConsoleList.CanvasPosition = Vector2.new(0, ConsoleList.AbsoluteCanvasSize.Y)
 end
 
 local copyConsoleBtn = Instance.new("TextButton")
-copyConsoleBtn.Size = UDim2.new(0.5, -4, 0, 30)
-copyConsoleBtn.Position = UDim2.new(0, 0, 1, -34)
+copyConsoleBtn.Size = UDim2.new(0.5, -4, 0, 32)
+copyConsoleBtn.Position = UDim2.new(0, 0, 1, -36)
 copyConsoleBtn.BackgroundColor3 = Color3.fromRGB(70, 100, 120)
 copyConsoleBtn.Text = "Copy Logs"
 copyConsoleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 copyConsoleBtn.TextSize = 13
 copyConsoleBtn.Font = Enum.Font.GothamBold
-copyConsoleBtn.Parent = UtilityTab
+copyConsoleBtn.Parent = ConsoleTab
 corner(copyConsoleBtn, 6)
 
 local clearConsoleBtn = Instance.new("TextButton")
-clearConsoleBtn.Size = UDim2.new(0.5, -4, 0, 30)
-clearConsoleBtn.Position = UDim2.new(0.5, 4, 1, -34)
+clearConsoleBtn.Size = UDim2.new(0.5, -4, 0, 32)
+clearConsoleBtn.Position = UDim2.new(0.5, 4, 1, -36)
 clearConsoleBtn.BackgroundColor3 = Color3.fromRGB(120, 70, 70)
 clearConsoleBtn.Text = "Clear"
 clearConsoleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 clearConsoleBtn.TextSize = 13
 clearConsoleBtn.Font = Enum.Font.GothamBold
-clearConsoleBtn.Parent = UtilityTab
+clearConsoleBtn.Parent = ConsoleTab
 corner(clearConsoleBtn, 6)
 
 copyConsoleBtn.MouseButton1Click:Connect(function()
@@ -1668,7 +1689,7 @@ copyConsoleBtn.MouseButton1Click:Connect(function()
 end)
 
 clearConsoleBtn.MouseButton1Click:Connect(function()
-    ConsoleLogs = {}
+    for i = #ConsoleLogs, 1, -1 do ConsoleLogs[i] = nil end
     if consoleUIUpdater then pcall(consoleUIUpdater) end
     showToast("Console cleared", Color3.fromRGB(80, 60, 60), 1.5)
 end)
@@ -1818,14 +1839,15 @@ openColorPicker = function(title, initialColor, onConfirm)
 end
 
 local tabDefs = {
-    { name = "Scripts",   frame = ScriptsTab, color = Color3.fromRGB(70, 70, 120) },
-    { name = "Hubs",      frame = HubsTab,    color = Color3.fromRGB(140, 100, 60) },
-    { name = "Games",     frame = GamesTab,   color = Color3.fromRGB(120, 100, 60) },
-    { name = "ESP",       frame = ESPTab,     color = Color3.fromRGB(120, 70, 70) },
-    { name = "Teleport",  frame = TPTab,      color = Color3.fromRGB(70, 120, 120) },
-    { name = "Character", frame = CharTab,    color = Color3.fromRGB(70, 120, 70) },
-    { name = "Server",    frame = ServerTab,  color = Color3.fromRGB(100, 70, 120) },
-    { name = "Utility",   frame = UtilityTab, color = Color3.fromRGB(100, 100, 100) },
+    { name = "Scripts",   frame = ScriptsTab,   color = Color3.fromRGB(70, 70, 120) },
+    { name = "Hubs",      frame = HubsTab,      color = Color3.fromRGB(140, 100, 60) },
+    { name = "Games",     frame = GamesTab,     color = Color3.fromRGB(120, 100, 60) },
+    { name = "ESP",       frame = ESPTab,       color = Color3.fromRGB(120, 70, 70) },
+    { name = "Teleport",  frame = TPTab,        color = Color3.fromRGB(70, 120, 120) },
+    { name = "Character", frame = CharTab,      color = Color3.fromRGB(70, 120, 70) },
+    { name = "Server",    frame = ServerTab,    color = Color3.fromRGB(100, 70, 120) },
+    { name = "Utility",   frame = UtilityTab,   color = Color3.fromRGB(100, 100, 100) },
+    { name = "Console",   frame = ConsoleTab,   color = Color3.fromRGB(60, 80, 100) },
 }
 local tabButtons = {}
 
@@ -1836,6 +1858,9 @@ local function selectTab(i)
         if btn then
             btn.BackgroundColor3 = (idx == i) and def.color or Color3.fromRGB(40, 40, 40)
         end
+    end
+    if tabDefs[i] and tabDefs[i].frame == ConsoleTab then
+        if consoleUIUpdater then pcall(consoleUIUpdater) end
     end
 end
 
