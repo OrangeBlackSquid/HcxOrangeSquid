@@ -7,6 +7,7 @@ local TweenService      = game:GetService("TweenService")
 local Lighting          = game:GetService("Lighting")
 local TeleportService   = game:GetService("TeleportService")
 local LogService        = game:GetService("LogService")
+local TextChatService   = game:GetService("TextChatService")
 local LocalPlayer       = Players.LocalPlayer
 
 local UI_PARENT = game.CoreGui
@@ -56,6 +57,7 @@ end
 local CustomScripts = loadJsonFile("custom_scripts.json")
 local GameScripts   = loadJsonFile("games_scripts.json")
 local Favorites     = loadJsonFile("favorites.json")
+local ChatMessages  = loadJsonFile("chat_messages.json")
 
 local function isFav(key) return Favorites[key] == true end
 local function toggleFav(key)
@@ -228,6 +230,79 @@ UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton2 then freecamMouseHeld = false end
 end)
 
+local function sendChatMessage(message, channels)
+    if not message or message == "" then return end
+    if not channels or #channels == 0 then
+        showToast("No channel selected", Color3.fromRGB(140, 50, 50), 2)
+        return
+    end
+
+    local sent = 0
+    local errors = {}
+
+    for _, channelName in ipairs(channels) do
+        if channelName == "Server" then
+            local ok, err = pcall(function()
+                local general = TextChatService:FindFirstChild("TextChannels")
+                if general then
+                    general = general:FindFirstChild("RBXGeneral")
+                end
+                if general then
+                    general:SendAsync(message)
+                else
+                    error("RBXGeneral channel not found")
+                end
+            end)
+            if ok then sent = sent + 1 else table.insert(errors, "Server: " .. tostring(err)) end
+
+        elseif channelName == "Global" then
+            local ok, err = pcall(function()
+                local channelsFolder = TextChatService:FindFirstChild("TextChannels")
+                if not channelsFolder then error("TextChannels not found") end
+                local globalChannel = nil
+                for _, ch in ipairs(channelsFolder:GetChildren()) do
+                    if ch:IsA("TextChannel") and (string.find(string.lower(ch.Name), "global") or string.find(string.lower(ch.Name), "cross")) then
+                        globalChannel = ch
+                        break
+                    end
+                end
+                if globalChannel then
+                    globalChannel:SendAsync(message)
+                else
+                    error("Global channel not found (may not be available in this game)")
+                end
+            end)
+            if ok then sent = sent + 1 else table.insert(errors, "Global: " .. tostring(err)) end
+
+        elseif channelName == "Friends" then
+            local ok, err = pcall(function()
+                local channelsFolder = TextChatService:FindFirstChild("TextChannels")
+                if not channelsFolder then error("TextChannels not found") end
+                local friendChannel = nil
+                for _, ch in ipairs(channelsFolder:GetChildren()) do
+                    if ch:IsA("TextChannel") and (string.find(string.lower(ch.Name), "friend") or string.find(string.lower(ch.Name), "whisper")) then
+                        friendChannel = ch
+                        break
+                    end
+                end
+                if friendChannel then
+                    friendChannel:SendAsync(message)
+                else
+                    error("Friends channel not found (may not be available in this game)")
+                end
+            end)
+            if ok then sent = sent + 1 else table.insert(errors, "Friends: " .. tostring(err)) end
+        end
+    end
+
+    if sent > 0 then
+        showToast("Sent to " .. sent .. " channel(s)", Color3.fromRGB(60, 120, 60), 2)
+    end
+    for _, e in ipairs(errors) do
+        warn("[Chat] " .. e)
+    end
+end
+
 local buildOk, buildErr = pcall(function()
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -354,7 +429,7 @@ TabBar.BorderSizePixel = 0
 TabBar.ScrollBarThickness = 2
 TabBar.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
 TabBar.ScrollingDirection = Enum.ScrollingDirection.X
-TabBar.CanvasSize = UDim2.new(0, 900, 0, 0)
+TabBar.CanvasSize = UDim2.new(0, 1000, 0, 0)
 TabBar.Parent = MainFrame
 corner(TabBar, 6)
 
@@ -569,8 +644,8 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
     end)
 
     local form = Instance.new("Frame")
-    form.Size = UDim2.new(1, -30, 0, 260)
-    form.Position = UDim2.new(0, 15, 0.5, -130)
+    form.Size = UDim2.new(1, -30, 0, 280)
+    form.Position = UDim2.new(0, 15, 0.5, -140)
     form.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     form.BorderSizePixel = 0
     form.Visible = false
@@ -594,7 +669,7 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
     nameBox.Size = UDim2.new(1, -20, 0, 30)
     nameBox.Position = UDim2.new(0, 10, 0, 40)
     nameBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    nameBox.PlaceholderText = "Name..."
+    nameBox.PlaceholderText = "Message name..."
     nameBox.Text = ""
     nameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     nameBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
@@ -607,25 +682,89 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
     corner(nameBox, 6)
     local np = Instance.new("UIPadding"); np.PaddingLeft = UDim.new(0, 8); np.PaddingRight = UDim.new(0, 8); np.Parent = nameBox
 
-    local scriptBox = Instance.new("TextBox")
-    scriptBox.Size = UDim2.new(1, -20, 0, 120)
-    scriptBox.Position = UDim2.new(0, 10, 0, 78)
-    scriptBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    scriptBox.PlaceholderText = "Paste loadstring or script here..."
-    scriptBox.Text = ""
-    scriptBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    scriptBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
-    scriptBox.TextSize = 13
-    scriptBox.Font = Enum.Font.Gotham
-    scriptBox.TextXAlignment = Enum.TextXAlignment.Left
-    scriptBox.TextYAlignment = Enum.TextYAlignment.Top
-    scriptBox.TextWrapped = true
-    scriptBox.MultiLine = true
-    scriptBox.ClearTextOnFocus = false
-    scriptBox.ZIndex = 91
-    scriptBox.Parent = form
-    corner(scriptBox, 6)
-    local sp = Instance.new("UIPadding"); sp.PaddingLeft = UDim.new(0, 8); sp.PaddingRight = UDim.new(0, 8); sp.PaddingTop = UDim.new(0, 4); sp.Parent = scriptBox
+    local msgBox = Instance.new("TextBox")
+    msgBox.Size = UDim2.new(1, -20, 0, 100)
+    msgBox.Position = UDim2.new(0, 10, 0, 78)
+    msgBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    msgBox.PlaceholderText = "Message content..."
+    msgBox.Text = ""
+    msgBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    msgBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+    msgBox.TextSize = 13
+    msgBox.Font = Enum.Font.Gotham
+    msgBox.TextXAlignment = Enum.TextXAlignment.Left
+    msgBox.TextYAlignment = Enum.TextYAlignment.Top
+    msgBox.TextWrapped = true
+    msgBox.MultiLine = true
+    msgBox.ClearTextOnFocus = false
+    msgBox.ZIndex = 91
+    msgBox.Parent = form
+    corner(msgBox, 6)
+    local mp = Instance.new("UIPadding"); mp.PaddingLeft = UDim.new(0, 8); mp.PaddingRight = UDim.new(0, 8); mp.PaddingTop = UDim.new(0, 4); mp.Parent = msgBox
+
+    local channelLabel = Instance.new("TextLabel")
+    channelLabel.Size = UDim2.new(1, -20, 0, 18)
+    channelLabel.Position = UDim2.new(0, 10, 0, 186)
+    channelLabel.BackgroundTransparency = 1
+    channelLabel.Text = "Channels:"
+    channelLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    channelLabel.TextSize = 12
+    channelLabel.Font = Enum.Font.GothamBold
+    channelLabel.TextXAlignment = Enum.TextXAlignment.Left
+    channelLabel.ZIndex = 91
+    channelLabel.Parent = form
+
+    local chServer = Instance.new("TextButton")
+    chServer.Size = UDim2.new(0, 70, 0, 26)
+    chServer.Position = UDim2.new(0, 10, 0, 206)
+    chServer.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    chServer.Text = "Server"
+    chServer.TextColor3 = Color3.fromRGB(255, 255, 255)
+    chServer.TextSize = 12
+    chServer.Font = Enum.Font.GothamBold
+    chServer.ZIndex = 91
+    chServer.Parent = form
+    corner(chServer, 4)
+    local srvOn = true
+    chServer.MouseButton1Click:Connect(function()
+        srvOn = not srvOn
+        chServer.BackgroundColor3 = srvOn and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(60, 60, 60)
+    end)
+    chServer.BackgroundColor3 = Color3.fromRGB(60, 120, 60)
+
+    local chGlobal = Instance.new("TextButton")
+    chGlobal.Size = UDim2.new(0, 70, 0, 26)
+    chGlobal.Position = UDim2.new(0, 86, 0, 206)
+    chGlobal.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    chGlobal.Text = "Global"
+    chGlobal.TextColor3 = Color3.fromRGB(255, 255, 255)
+    chGlobal.TextSize = 12
+    chGlobal.Font = Enum.Font.GothamBold
+    chGlobal.ZIndex = 91
+    chGlobal.Parent = form
+    corner(chGlobal, 4)
+    local gblOn = false
+    chGlobal.MouseButton1Click:Connect(function()
+        gblOn = not gblOn
+        chGlobal.BackgroundColor3 = gblOn and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(60, 60, 60)
+    end)
+
+    local chFriends = Instance.new("TextButton")
+    chFriends.Size = UDim2.new(0, 70, 0, 26)
+    chFriends.Position = UDim2.new(0, 162, 0, 206)
+    chFriends.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    chFriends.Text = "Friends"
+    chFriends.TextColor3 = Color3.fromRGB(255, 255, 255)
+    chFriends.TextSize = 12
+    chFriends.Font = Enum.Font.GothamBold
+    chFriends.ZIndex = 91
+    chFriends.Parent = form
+    corner(chFriends, 4)
+    local frdOn = false
+    chFriends.MouseButton1Click:Connect(function()
+        frdOn = not frdOn
+        chFriends.BackgroundColor3 = frdOn and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(60, 60, 60)
+    end)
 
     local cancelBtn = Instance.new("TextButton")
     cancelBtn.Size = UDim2.new(0.5, -15, 0, 32)
@@ -720,12 +859,22 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
                 local p = Instance.new("UIPadding"); p.PaddingLeft = UDim.new(0, 10); p.Parent = btn
 
                 btn.MouseButton1Click:Connect(function()
-                    local ok, err = pcall(function() loadstring(entry.script)() end)
-                    if ok then
-                        showToast("Executed: " .. entry.name, Color3.fromRGB(60, 120, 60), 2)
+                    if favPrefix == "chat" then
+                        local channels = {}
+                        if entry.channels then
+                            for ch, on in pairs(entry.channels) do
+                                if on then table.insert(channels, ch) end
+                            end
+                        end
+                        sendChatMessage(entry.script, channels)
                     else
-                        showToast("Failed: " .. entry.name, Color3.fromRGB(140, 50, 50), 3)
-                        warn("Failed " .. entry.name .. ": " .. tostring(err))
+                        local ok, err = pcall(function() loadstring(entry.script)() end)
+                        if ok then
+                            showToast("Executed: " .. entry.name, Color3.fromRGB(60, 120, 60), 2)
+                        else
+                            showToast("Failed: " .. entry.name, Color3.fromRGB(140, 50, 50), 3)
+                            warn("Failed " .. entry.name .. ": " .. tostring(err))
+                        end
                     end
                 end)
 
@@ -742,7 +891,15 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
                 edit.MouseButton1Click:Connect(function()
                     editingIndex = i
                     nameBox.Text = entry.name
-                    scriptBox.Text = entry.script
+                    msgBox.Text = entry.script
+                    if entry.channels then
+                        srvOn = entry.channels.Server == true
+                        gblOn = entry.channels.Global == true
+                        frdOn = entry.channels.Friends == true
+                        chServer.BackgroundColor3 = srvOn and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(60, 60, 60)
+                        chGlobal.BackgroundColor3 = gblOn and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(60, 60, 60)
+                        chFriends.BackgroundColor3 = frdOn and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(60, 60, 60)
+                    end
                     confirmBtn.Text = "Save"
                     fTitle.Text = "Edit: " .. entry.name
                     form.Visible = true
@@ -773,7 +930,13 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
     addBtn.MouseButton1Click:Connect(function()
         editingIndex = nil
         nameBox.Text = ""
-        scriptBox.Text = ""
+        msgBox.Text = ""
+        srvOn = true
+        gblOn = false
+        frdOn = false
+        chServer.BackgroundColor3 = Color3.fromRGB(60, 120, 60)
+        chGlobal.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        chFriends.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
         confirmBtn.Text = "Add"
         fTitle.Text = (addLabel:gsub("^%+ ", ""))
         form.Visible = true
@@ -782,30 +945,37 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
     cancelBtn.MouseButton1Click:Connect(function()
         editingIndex = nil
         nameBox.Text = ""
-        scriptBox.Text = ""
+        msgBox.Text = ""
         form.Visible = false
     end)
 
     confirmBtn.MouseButton1Click:Connect(function()
-        if nameBox.Text == "" or scriptBox.Text == "" then
+        if nameBox.Text == "" or msgBox.Text == "" then
             if nameBox.Text == "" then nameBox.BackgroundColor3 = Color3.fromRGB(80, 30, 30) end
-            if scriptBox.Text == "" then scriptBox.BackgroundColor3 = Color3.fromRGB(80, 30, 30) end
+            if msgBox.Text == "" then msgBox.BackgroundColor3 = Color3.fromRGB(80, 30, 30) end
             task.wait(0.4)
             nameBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-            scriptBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+            msgBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
             return
         end
+
+        local channelData = {
+            Server = srvOn,
+            Global = gblOn,
+            Friends = frdOn,
+        }
+
         if editingIndex then
-            dataStore[editingIndex] = { name = nameBox.Text, script = scriptBox.Text }
+            dataStore[editingIndex] = { name = nameBox.Text, script = msgBox.Text, channels = channelData }
             showToast("Saved: " .. nameBox.Text, Color3.fromRGB(60, 120, 60), 2)
         else
-            table.insert(dataStore, { name = nameBox.Text, script = scriptBox.Text })
+            table.insert(dataStore, { name = nameBox.Text, script = msgBox.Text, channels = channelData })
             showToast("Added: " .. nameBox.Text, Color3.fromRGB(60, 120, 60), 2)
         end
         saveJsonFile(saveFile, dataStore)
         editingIndex = nil
         nameBox.Text = ""
-        scriptBox.Text = ""
+        msgBox.Text = ""
         form.Visible = false
         refresh()
     end)
@@ -826,7 +996,7 @@ local ScriptHubs = {
     { name = "Kitty Hub (190 Games)",        url = "https://rscripts.net/raw/kitty-hub-190-games-keyless_1723323186468_Gak3vicgC5.txt" },
     { name = "Redz Hub (Multi-Game)",        url = "https://raw.githubusercontent.com/tlredz/Scripts/refs/heads/main/main.luau" },
     { name = "Vidas Hub (Multi-Game)",       url = "https://pastebin.com/raw/1K0n4K7q" },
-    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklauss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
+    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklausss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
     { name = "SP Hub (Multi-Game)",          url = "https://raw.githubusercontent.com/as6cd0/SP_Hub/refs/heads/main/Loader" },
     { name = "Speed Hub X (Multi-Game)",     url = "https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua" },
     { name = "BlackCat48Hub (8 Games)",      url = "https://raw.githubusercontent.com/ytDragonV6bayku/BlackCat48HubMainScriptLoader/main/MainScriptLoader" },
@@ -1083,6 +1253,18 @@ buildListPage(
     GamesTab, GameScripts, "games_scripts.json",
     "+ Add Game", "No games added yet.\nClick '+ Add Game' above.",
     "game"
+)
+
+local ChatTab = Instance.new("Frame")
+ChatTab.Size = UDim2.new(1, 0, 1, 0)
+ChatTab.BackgroundTransparency = 1
+ChatTab.Visible = false
+ChatTab.Parent = ContentArea
+
+buildListPage(
+    ChatTab, ChatMessages, "chat_messages.json",
+    "+ Add Message", "No messages added yet.\nClick '+ Add Message' above.",
+    "chat"
 )
 
 local ESPTab = Instance.new("Frame")
@@ -1842,6 +2024,7 @@ local tabDefs = {
     { name = "Scripts",   frame = ScriptsTab,   color = Color3.fromRGB(70, 70, 120) },
     { name = "Hubs",      frame = HubsTab,      color = Color3.fromRGB(140, 100, 60) },
     { name = "Games",     frame = GamesTab,     color = Color3.fromRGB(120, 100, 60) },
+    { name = "Chat",      frame = ChatTab,      color = Color3.fromRGB(80, 120, 120) },
     { name = "ESP",       frame = ESPTab,       color = Color3.fromRGB(120, 70, 70) },
     { name = "Teleport",  frame = TPTab,        color = Color3.fromRGB(70, 120, 120) },
     { name = "Character", frame = CharTab,      color = Color3.fromRGB(70, 120, 70) },
