@@ -60,6 +60,7 @@ local GameScripts   = loadJsonFile("games_scripts.json")
 local Favorites     = loadJsonFile("favorites.json")
 local ChatMessages  = loadJsonFile("chat_messages.json")
 local Warrants      = loadJsonFile("warrants.json")
+local Records       = loadJsonFile("records.json")
 
 local function isFav(key) return Favorites[key] == true end
 local function toggleFav(key)
@@ -82,6 +83,24 @@ end
 local function newWarrantId()
     warrantCounter = warrantCounter + 1
     return warrantCounter
+end
+
+local recordCounter = 0
+for _, r in ipairs(Records) do
+    if type(r) == "table" and type(r.id) == "number" and r.id > recordCounter then
+        recordCounter = r.id
+    end
+end
+local function newRecordId()
+    recordCounter = recordCounter + 1
+    return recordCounter
+end
+
+local function addRecord(entry)
+    entry.id = newRecordId()
+    entry.timestamp = entry.timestamp or getTimestamp()
+    table.insert(Records, entry)
+    saveJsonFile("records.json", Records)
 end
 
 local function hasApprovedWarrant(playerName)
@@ -1106,7 +1125,7 @@ local ScriptHubs = {
     { name = "Kitty Hub (190 Games)",        url = "https://rscripts.net/raw/kitty-hub-190-games-keyless_1723323186468_Gak3vicgC5.txt" },
     { name = "Redz Hub (Multi-Game)",        url = "https://raw.githubusercontent.com/tlredz/Scripts/refs/heads/main/main.luau" },
     { name = "Vidas Hub (Multi-Game)",       url = "https://pastebin.com/raw/1K0n4K7q" },
-    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklausss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
+    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklauss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
     { name = "SP Hub (Multi-Game)",          url = "https://raw.githubusercontent.com/as6cd0/SP_Hub/refs/heads/main/Loader" },
     { name = "Speed Hub X (Multi-Game)",     url = "https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua" },
     { name = "BlackCat48Hub (8 Games)",      url = "https://raw.githubusercontent.com/ytDragonV6bayku/BlackCat48HubMainScriptLoader/main/MainScriptLoader" },
@@ -1385,7 +1404,7 @@ WarrantTab.Parent = ContentArea
 
 local selectedWarrantPlayer = nil
 
-local warrantLeftPanel, _ = buildPlayerListPanel(WarrantTab, function(p)
+buildPlayerListPanel(WarrantTab, function(p)
     selectedWarrantPlayer = p
     warrantSelectedLabel.Text = "Selected: " .. p.Name
 end)
@@ -1469,14 +1488,27 @@ fileWarrantBtn.MouseButton1Click:Connect(function()
         targetUserId = selectedWarrantPlayer.UserId,
         reason = reason,
         filedBy = LocalPlayer.DisplayName,
+        filedByUser = LocalPlayer.Name,
         filedAt = getTimestamp(),
         status = "pending",
         reviewedBy = nil,
+        reviewedByUser = nil,
         reviewReason = nil,
         reviewedAt = nil,
     }
     table.insert(Warrants, warrant)
     saveJsonFile("warrants.json", Warrants)
+
+    addRecord({
+        warrantId = warrant.id,
+        targetName = warrant.targetName,
+        kind = "filed",
+        reason = reason,
+        filerDisplay = LocalPlayer.DisplayName,
+        filerUser = LocalPlayer.Name,
+        timestamp = warrant.filedAt,
+    })
+
     warrantReasonBox.Text = ""
     showToast("Warrant filed for " .. selectedWarrantPlayer.Name, Color3.fromRGB(140, 100, 30), 2)
     if refreshPending then refreshPending() end
@@ -1602,9 +1634,23 @@ openReviewDialog = function(warrantId, action)
 
         found.status = action
         found.reviewedBy = LocalPlayer.DisplayName
+        found.reviewedByUser = LocalPlayer.Name
         found.reviewReason = reviewReason
         found.reviewedAt = getTimestamp()
         saveJsonFile("warrants.json", Warrants)
+
+        addRecord({
+            warrantId = found.id,
+            targetName = found.targetName,
+            kind = action,
+            reason = found.reason,
+            reviewReason = reviewReason,
+            filerDisplay = found.filedBy,
+            filerUser = found.filedByUser,
+            reviewerDisplay = LocalPlayer.DisplayName,
+            reviewerUser = LocalPlayer.Name,
+            timestamp = found.reviewedAt,
+        })
 
         form:Destroy()
         showToast("Warrant " .. action, action == "approved" and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(140, 50, 50), 2)
@@ -1659,7 +1705,7 @@ refreshPending = function()
             metaLbl.Size = UDim2.new(1, -12, 0, 16)
             metaLbl.Position = UDim2.new(0, 6, 0, 66)
             metaLbl.BackgroundTransparency = 1
-            metaLbl.Text = "By " .. tostring(w.filedBy) .. " | " .. tostring(w.filedAt)
+            metaLbl.Text = "By " .. tostring(w.filedByUser or w.filedBy) .. " | " .. tostring(w.filedAt)
             metaLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
             metaLbl.TextSize = 11
             metaLbl.Font = Enum.Font.Gotham
@@ -1733,7 +1779,7 @@ refreshWanted = function()
             nameLbl.Position = UDim2.new(0, 8, 0, 6)
             nameLbl.BackgroundTransparency = 1
             nameLbl.Text = "WANTED: " .. tostring(w.targetName)
-            nameLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
+            nameLbl.TextColor3 = Color3.fromRGB(255, 150, 40)
             nameLbl.TextSize = 14
             nameLbl.Font = Enum.Font.GothamBold
             nameLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -1766,16 +1812,32 @@ refreshWanted = function()
             corner(clearBtn, 4)
 
             clearBtn.MouseButton1Click:Connect(function()
+                local target = nil
                 for _, tw in ipairs(Warrants) do
                     if tw.id == wid then
                         tw.status = "cleared"
+                        target = tw
                         break
                     end
                 end
-                saveJsonFile("warrants.json", Warrants)
-                showToast("Cleared warrant for " .. tostring(w.targetName), Color3.fromRGB(100, 80, 80), 2)
-                refreshWanted()
-                if refreshRecordsFor then refreshRecordsFor() end
+                if target then
+                    addRecord({
+                        warrantId = target.id,
+                        targetName = target.targetName,
+                        kind = "cleared",
+                        reason = target.reason,
+                        reviewReason = target.reviewReason,
+                        filerDisplay = target.filedBy,
+                        filerUser = target.filedByUser,
+                        reviewerDisplay = LocalPlayer.DisplayName,
+                        reviewerUser = LocalPlayer.Name,
+                        timestamp = getTimestamp(),
+                    })
+                    saveJsonFile("warrants.json", Warrants)
+                    showToast("Cleared warrant for " .. tostring(target.targetName), Color3.fromRGB(100, 80, 80), 2)
+                    refreshWanted()
+                    if refreshRecordsFor then refreshRecordsFor() end
+                end
             end)
         end
     end
@@ -1840,6 +1902,29 @@ recordsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     RecordsList.CanvasSize = UDim2.new(0, 0, 0, recordsLayout.AbsoluteContentSize.Y + 8)
 end)
 
+local function buildRecordText(r)
+    if r.kind == "filed" then
+        return "APB\nWarrant filed: " .. tostring(r.reason) ..
+               "\nBy " .. tostring(r.filerUser or r.filerDisplay) .. " " .. tostring(r.timestamp)
+    elseif r.kind == "approved" then
+        return "APB\nWarrant approved | Reason: " .. tostring(r.reason) ..
+               " Filed by: " .. tostring(r.filerDisplay) ..
+               " | Approved by: " .. tostring(r.reviewerDisplay) ..
+               "\nBy " .. tostring(r.reviewerUser or r.reviewerDisplay) .. "\n" .. tostring(r.timestamp)
+    elseif r.kind == "denied" then
+        return "APB\nWarrant denied | Reason: " .. tostring(r.reviewReason or r.reason) ..
+               " Filed by: " .. tostring(r.filerDisplay) ..
+               " | Denied by: " .. tostring(r.reviewerDisplay) ..
+               "\nBy " .. tostring(r.reviewerUser or r.reviewerDisplay) .. "\n" .. tostring(r.timestamp)
+    elseif r.kind == "cleared" then
+        return "APB\nWarrant cleared | Reason: " .. tostring(r.reviewReason or r.reason) ..
+               " | Cleared by: " .. tostring(r.reviewerDisplay) ..
+               "\nBy " .. tostring(r.reviewerUser or r.reviewerDisplay) .. "\n" .. tostring(r.timestamp)
+    else
+        return "APB\nUnknown record"
+    end
+end
+
 refreshRecordsFor = function()
     for _, c in ipairs(RecordsList:GetChildren()) do
         if c:IsA("GuiObject") then c:Destroy() end
@@ -1858,14 +1943,14 @@ refreshRecordsFor = function()
         return
     end
 
-    local records = {}
-    for _, w in ipairs(Warrants) do
-        if w.targetName == selectedRecordsPlayer.Name then
-            table.insert(records, w)
+    local matching = {}
+    for _, r in ipairs(Records) do
+        if r.targetName == selectedRecordsPlayer.Name then
+            table.insert(matching, r)
         end
     end
 
-    if #records == 0 then
+    if #matching == 0 then
         local lbl = Instance.new("TextLabel")
         lbl.Size = UDim2.new(1, -6, 0, 40)
         lbl.BackgroundTransparency = 1
@@ -1878,28 +1963,7 @@ refreshRecordsFor = function()
         return
     end
 
-    for _, w in ipairs(records) do
-        local text
-        if w.status == "pending" then
-            text = "APB\nWarrant filed: " .. tostring(w.reason) ..
-                   "\nBy " .. tostring(w.filedBy) .. " " .. tostring(w.filedAt)
-        elseif w.status == "approved" then
-            text = "APB\nWarrant approved | Reason: " .. tostring(w.reason) ..
-                   " Filed by: " .. tostring(w.filedBy) ..
-                   " | Approved by: " .. tostring(w.reviewedBy) ..
-                   "\nBy " .. tostring(w.filedBy) .. "\n" .. tostring(w.filedAt)
-        elseif w.status == "denied" then
-            text = "APB\nWarrant denied | Reason: " .. tostring(w.reviewReason or w.reason) ..
-                   " Filed by: " .. tostring(w.filedBy) ..
-                   " | Denied by: " .. tostring(w.reviewedBy) ..
-                   "\nBy " .. tostring(w.filedBy) .. "\n" .. tostring(w.filedAt)
-        elseif w.status == "cleared" then
-            text = "APB\nWarrant cleared | Reason: " .. tostring(w.reviewReason or w.reason) ..
-                   "\nBy " .. tostring(w.reviewedBy or w.filedBy) .. " " .. tostring(w.reviewedAt or w.filedAt)
-        else
-            text = "APB\nUnknown record"
-        end
-
+    for _, r in ipairs(matching) do
         local item = Instance.new("Frame")
         item.Size = UDim2.new(1, -6, 0, 130)
         item.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -1917,7 +1981,7 @@ refreshRecordsFor = function()
         local txt = Instance.new("TextLabel")
         txt.Size = UDim2.new(1, 0, 1, 0)
         txt.BackgroundTransparency = 1
-        txt.Text = text
+        txt.Text = buildRecordText(r)
         txt.TextColor3 = Color3.fromRGB(220, 220, 220)
         txt.TextSize = 11
         txt.Font = Enum.Font.Code
@@ -3199,7 +3263,7 @@ task.spawn(function()
                         lbl.Size = UDim2.new(1, 0, 1, 0)
                         lbl.BackgroundTransparency = 1
                         lbl.Text = "WANTED"
-                        lbl.TextColor3 = Color3.fromRGB(255, 60, 60)
+                        lbl.TextColor3 = Color3.fromRGB(255, 150, 40)
                         lbl.TextStrokeTransparency = 0
                         lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
                         lbl.TextSize = 20
