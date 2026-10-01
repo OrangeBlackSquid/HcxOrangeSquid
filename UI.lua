@@ -996,7 +996,7 @@ local ScriptHubs = {
     { name = "Kitty Hub (190 Games)",        url = "https://rscripts.net/raw/kitty-hub-190-games-keyless_1723323186468_Gak3vicgC5.txt" },
     { name = "Redz Hub (Multi-Game)",        url = "https://raw.githubusercontent.com/tlredz/Scripts/refs/heads/main/main.luau" },
     { name = "Vidas Hub (Multi-Game)",       url = "https://pastebin.com/raw/1K0n4K7q" },
-    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklauss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
+    { name = "ROXCOM Hub (All Games)",       url = "https://raw.githubusercontent.com/yasinklausss1/roxcom-hub/refs/heads/main/roxcom-hub.lua" },
     { name = "SP Hub (Multi-Game)",          url = "https://raw.githubusercontent.com/as6cd0/SP_Hub/refs/heads/main/Loader" },
     { name = "Speed Hub X (Multi-Game)",     url = "https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua" },
     { name = "BlackCat48Hub (8 Games)",      url = "https://raw.githubusercontent.com/ytDragonV6bayku/BlackCat48HubMainScriptLoader/main/MainScriptLoader" },
@@ -1277,21 +1277,21 @@ local gameArea = Instance.new("Frame")
 gameArea.Name = "GameArea"
 gameArea.Size = UDim2.new(1, 0, 1, -40)
 gameArea.Position = UDim2.new(0, 0, 0, 0)
-gameArea.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+gameArea.BackgroundColor3 = Color3.fromRGB(28, 38, 52)
 gameArea.BorderSizePixel = 0
 gameArea.ClipsDescendants = true
 gameArea.Parent = GameTab
-corner(gameArea, 6)
+corner(gameArea, 10)
 
 local scoreLabel = Instance.new("TextLabel")
-scoreLabel.Size = UDim2.new(1, 0, 0, 30)
-scoreLabel.Position = UDim2.new(0, 0, 0, 4)
+scoreLabel.Size = UDim2.new(1, 0, 0, 42)
+scoreLabel.Position = UDim2.new(0, 0, 0, 12)
 scoreLabel.BackgroundTransparency = 1
 scoreLabel.Text = "0"
 scoreLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 scoreLabel.TextStrokeTransparency = 0
 scoreLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-scoreLabel.TextSize = 22
+scoreLabel.TextSize = 36
 scoreLabel.Font = Enum.Font.GothamBold
 scoreLabel.ZIndex = 5
 scoreLabel.Parent = gameArea
@@ -1310,14 +1310,15 @@ gameHint.ZIndex = 4
 gameHint.Parent = gameArea
 
 local bird = Instance.new("Frame")
-bird.Size = UDim2.new(0, 22, 0, 22)
-bird.Position = UDim2.new(0, 60, 0.5, -11)
-bird.BackgroundColor3 = Color3.fromRGB(255, 170, 40)
+bird.Size = UDim2.new(0, 26, 0, 18)
+bird.Position = UDim2.new(0, 60, 0.5, -9)
+bird.BackgroundColor3 = Color3.fromRGB(255, 190, 50)
 bird.BorderSizePixel = 0
 bird.ZIndex = 3
 bird.Visible = false
+bird.Rotation = 0
 bird.Parent = gameArea
-corner(bird, 3)
+corner(bird, 4)
 
 local gameBtn = Instance.new("TextButton")
 gameBtn.Size = UDim2.new(1, 0, 0, 32)
@@ -1339,13 +1340,13 @@ local gameState = {
     spawnTimer = 0,
     spawnInterval = 1.6,
     pipes = {},
-    gap = 90,
-    pipeW = 40,
-    birdW = 22,
-    birdH = 22,
+    gap = 110,
+    pipeW = 46,
+    birdW = 26,
+    birdH = 18,
     birdX = 60,
-    gravity = 1100,
-    flapPower = -260,
+    gravity = 1400,
+    flapPower = -270,
     hasStarted = false,
 }
 
@@ -1371,20 +1372,20 @@ local function spawnPipe()
     local top = Instance.new("Frame")
     top.Size = UDim2.new(0, pipeW, 0, gapY)
     top.Position = UDim2.new(0, areaW, 0, 0)
-    top.BackgroundColor3 = Color3.fromRGB(85, 155, 85)
+    top.BackgroundColor3 = Color3.fromRGB(85, 195, 100)
     top.BorderSizePixel = 0
     top.ZIndex = 2
     top.Parent = gameArea
-    corner(top, 2)
+    corner(top, 4)
 
     local bottom = Instance.new("Frame")
     bottom.Size = UDim2.new(0, pipeW, 0, math.max(areaH - gapY - gap, 0))
     bottom.Position = UDim2.new(0, areaW, 0, gapY + gap)
-    bottom.BackgroundColor3 = Color3.fromRGB(85, 155, 85)
+    bottom.BackgroundColor3 = Color3.fromRGB(85, 195, 100)
     bottom.BorderSizePixel = 0
     bottom.ZIndex = 2
     bottom.Parent = gameArea
-    corner(bottom, 2)
+    corner(bottom, 4)
 
     table.insert(gameState.pipes, {
         top = top, bottom = bottom,
@@ -1411,6 +1412,7 @@ local function resetGame()
     if gameState.y < 0 then gameState.y = 20 end
 
     bird.Position = UDim2.new(0, gameState.birdX, 0, gameState.y)
+    bird.Rotation = 0
     bird.Visible = false
     scoreLabel.Text = "0"
     gameHint.Visible = true
@@ -1467,6 +1469,9 @@ RunService.RenderStepped:Connect(function(dt)
     end
 
     bird.Position = UDim2.new(0, gameState.birdX, 0, gameState.y)
+
+    local targetRot = math.clamp(gameState.vy * 0.06, -30, 45)
+    bird.Rotation = targetRot
 
     gameState.spawnTimer = gameState.spawnTimer + dt
     if gameState.spawnTimer >= gameState.spawnInterval then
