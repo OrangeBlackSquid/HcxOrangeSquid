@@ -429,7 +429,7 @@ TabBar.BorderSizePixel = 0
 TabBar.ScrollBarThickness = 2
 TabBar.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
 TabBar.ScrollingDirection = Enum.ScrollingDirection.X
-TabBar.CanvasSize = UDim2.new(0, 1000, 0, 0)
+TabBar.CanvasSize = UDim2.new(0, 1100, 0, 0)
 TabBar.Parent = MainFrame
 corner(TabBar, 6)
 
@@ -1267,6 +1267,248 @@ buildListPage(
     "chat"
 )
 
+local GameTab = Instance.new("Frame")
+GameTab.Size = UDim2.new(1, 0, 1, 0)
+GameTab.BackgroundTransparency = 1
+GameTab.Visible = false
+GameTab.Parent = ContentArea
+
+local gameArea = Instance.new("Frame")
+gameArea.Name = "GameArea"
+gameArea.Size = UDim2.new(1, 0, 1, -40)
+gameArea.Position = UDim2.new(0, 0, 0, 0)
+gameArea.BackgroundColor3 = Color3.fromRGB(150, 200, 235)
+gameArea.BorderSizePixel = 0
+gameArea.ClipsDescendants = true
+gameArea.Parent = GameTab
+corner(gameArea, 6)
+
+local scoreLabel = Instance.new("TextLabel")
+scoreLabel.Size = UDim2.new(1, 0, 0, 30)
+scoreLabel.Position = UDim2.new(0, 0, 0, 4)
+scoreLabel.BackgroundTransparency = 1
+scoreLabel.Text = "0"
+scoreLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+scoreLabel.TextStrokeTransparency = 0
+scoreLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+scoreLabel.TextSize = 22
+scoreLabel.Font = Enum.Font.GothamBold
+scoreLabel.ZIndex = 5
+scoreLabel.Parent = gameArea
+
+local gameHint = Instance.new("TextLabel")
+gameHint.Size = UDim2.new(1, 0, 1, 0)
+gameHint.BackgroundTransparency = 1
+gameHint.Text = "Tap Start to play\n\nTap the area to flap"
+gameHint.TextColor3 = Color3.fromRGB(255, 255, 255)
+gameHint.TextStrokeTransparency = 0
+gameHint.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+gameHint.TextSize = 14
+gameHint.Font = Enum.Font.GothamBold
+gameHint.TextWrapped = true
+gameHint.ZIndex = 4
+gameHint.Parent = gameArea
+
+local bird = Instance.new("Frame")
+bird.Size = UDim2.new(0, 22, 0, 22)
+bird.Position = UDim2.new(0, 60, 0.5, -11)
+bird.BackgroundColor3 = Color3.fromRGB(255, 170, 40)
+bird.BorderSizePixel = 0
+bird.ZIndex = 3
+bird.Visible = false
+bird.Parent = gameArea
+corner(bird, 3)
+
+local gameBtn = Instance.new("TextButton")
+gameBtn.Size = UDim2.new(1, 0, 0, 32)
+gameBtn.Position = UDim2.new(0, 0, 1, -34)
+gameBtn.BackgroundColor3 = Color3.fromRGB(60, 140, 60)
+gameBtn.Text = "Start"
+gameBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+gameBtn.TextSize = 14
+gameBtn.Font = Enum.Font.GothamBold
+gameBtn.Parent = GameTab
+corner(gameBtn, 6)
+
+local gameState = {
+    running = false,
+    y = 0,
+    vy = 0,
+    score = 0,
+    speed = 130,
+    spawnTimer = 0,
+    spawnInterval = 1.6,
+    pipes = {},
+    gap = 90,
+    pipeW = 40,
+    birdW = 22,
+    birdH = 22,
+    birdX = 60,
+    gravity = 900,
+    flapPower = -320,
+    hasStarted = false,
+}
+
+local function clearPipes()
+    for _, p in ipairs(gameState.pipes) do
+        pcall(function() p.top:Destroy() end)
+        pcall(function() p.bottom:Destroy() end)
+    end
+    gameState.pipes = {}
+end
+
+local function spawnPipe()
+    local areaH = gameArea.AbsoluteSize.Y
+    local areaW = gameArea.AbsoluteSize.X
+    if areaH < 80 or areaW < 80 then return end
+    local gap = gameState.gap
+    local pipeW = gameState.pipeW
+    local minTop = 30
+    local maxTop = areaH - gap - 30
+    if maxTop < minTop then maxTop = minTop end
+    local gapY = math.random(minTop, math.floor(maxTop))
+
+    local top = Instance.new("Frame")
+    top.Size = UDim2.new(0, pipeW, 0, gapY)
+    top.Position = UDim2.new(0, areaW, 0, 0)
+    top.BackgroundColor3 = Color3.fromRGB(85, 155, 85)
+    top.BorderSizePixel = 0
+    top.ZIndex = 2
+    top.Parent = gameArea
+    corner(top, 2)
+
+    local bottom = Instance.new("Frame")
+    bottom.Size = UDim2.new(0, pipeW, 0, math.max(areaH - gapY - gap, 0))
+    bottom.Position = UDim2.new(0, areaW, 0, gapY + gap)
+    bottom.BackgroundColor3 = Color3.fromRGB(85, 155, 85)
+    bottom.BorderSizePixel = 0
+    bottom.ZIndex = 2
+    bottom.Parent = gameArea
+    corner(bottom, 2)
+
+    table.insert(gameState.pipes, {
+        top = top, bottom = bottom,
+        x = areaW,
+        gapY = gapY,
+        gap = gap,
+        pipeW = pipeW,
+        passed = false,
+    })
+end
+
+local function resetGame()
+    gameState.running = false
+    gameState.score = 0
+    gameState.speed = 130
+    gameState.spawnTimer = 0
+    gameState.spawnInterval = 1.6
+    gameState.vy = 0
+    gameState.hasStarted = false
+    clearPipes()
+
+    local areaH = gameArea.AbsoluteSize.Y
+    gameState.y = areaH / 2 - gameState.birdH / 2
+    if gameState.y < 0 then gameState.y = 20 end
+
+    bird.Position = UDim2.new(0, gameState.birdX, 0, gameState.y)
+    bird.Visible = false
+    scoreLabel.Text = "0"
+    gameHint.Visible = true
+end
+
+local function gameOver()
+    gameState.running = false
+    gameBtn.Text = "Play Again"
+    gameHint.Text = "Game Over\nScore: " .. gameState.score .. "\n\nTap to try again"
+    gameHint.Visible = true
+    showToast("Flappy Score: " .. gameState.score, Color3.fromRGB(140, 100, 30), 2.5)
+end
+
+gameBtn.MouseButton1Click:Connect(function()
+    resetGame()
+    gameState.running = true
+    gameState.hasStarted = false
+    gameState.vy = gameState.flapPower
+    bird.Visible = true
+    gameHint.Visible = false
+    gameBtn.Text = "Restart"
+end)
+
+gameArea.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        if gameState.running then
+            gameState.vy = gameState.flapPower
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function(dt)
+    if not gameState.running then return end
+    if not GameTab.Visible then return end
+    if not MainFrame.Visible then return end
+    if dt > 0.2 then dt = 0.2 end
+
+    local areaW = gameArea.AbsoluteSize.X
+    local areaH = gameArea.AbsoluteSize.Y
+    if areaH < 80 or areaW < 80 then return end
+
+    gameState.vy = gameState.vy + gameState.gravity * dt
+    gameState.y = gameState.y + gameState.vy * dt
+
+    if gameState.y < 0 then
+        gameState.y = 0
+        gameState.vy = 0
+    end
+    if gameState.y + gameState.birdH > areaH then
+        bird.Position = UDim2.new(0, gameState.birdX, 0, gameState.y)
+        gameOver()
+        return
+    end
+
+    bird.Position = UDim2.new(0, gameState.birdX, 0, gameState.y)
+
+    gameState.spawnTimer = gameState.spawnTimer + dt
+    if gameState.spawnTimer >= gameState.spawnInterval then
+        gameState.spawnTimer = 0
+        spawnPipe()
+    end
+
+    local px = gameState.birdX
+    local pw = gameState.birdW
+    local py = gameState.y
+    local ph = gameState.birdH
+
+    for i = #gameState.pipes, 1, -1 do
+        local p = gameState.pipes[i]
+        p.x = p.x - gameState.speed * dt
+        p.top.Position = UDim2.new(0, p.x, 0, 0)
+        p.bottom.Position = UDim2.new(0, p.x, 0, p.gapY + p.gap)
+
+        if not p.passed and (p.x + p.pipeW) < px then
+            p.passed = true
+            gameState.score = gameState.score + 1
+            scoreLabel.Text = tostring(gameState.score)
+            gameState.speed = gameState.speed + 7
+            gameState.spawnInterval = math.max(0.85, gameState.spawnInterval - 0.045)
+        end
+
+        if (p.x + p.pipeW) < 0 then
+            pcall(function() p.top:Destroy() end)
+            pcall(function() p.bottom:Destroy() end)
+            table.remove(gameState.pipes, i)
+        else
+            local overlapX = (p.x < px + pw) and (p.x + p.pipeW > px)
+            if overlapX then
+                if py < p.gapY or (py + ph) > (p.gapY + p.gap) then
+                    gameOver()
+                    return
+                end
+            end
+        end
+    end
+end)
+
 local ESPTab = Instance.new("Frame")
 ESPTab.Size = UDim2.new(1, 0, 1, 0)
 ESPTab.BackgroundTransparency = 1
@@ -2025,6 +2267,7 @@ local tabDefs = {
     { name = "Hubs",      frame = HubsTab,      color = Color3.fromRGB(140, 100, 60) },
     { name = "Games",     frame = GamesTab,     color = Color3.fromRGB(120, 100, 60) },
     { name = "Chat",      frame = ChatTab,      color = Color3.fromRGB(80, 120, 120) },
+    { name = "Game",      frame = GameTab,      color = Color3.fromRGB(140, 70, 140) },
     { name = "ESP",       frame = ESPTab,       color = Color3.fromRGB(120, 70, 70) },
     { name = "Teleport",  frame = TPTab,        color = Color3.fromRGB(70, 120, 120) },
     { name = "Character", frame = CharTab,      color = Color3.fromRGB(70, 120, 70) },
@@ -2109,6 +2352,15 @@ UserInputService.InputChanged:Connect(function(input)
         Icon.Position = UDim2.new(
             startPos.X.Scale, startPos.X.Offset + delta.X,
             startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+task.defer(function()
+    task.wait(0.2)
+    local areaH = gameArea.AbsoluteSize.Y
+    if areaH > 80 then
+        gameState.y = areaH / 2 - gameState.birdH / 2
+        bird.Position = UDim2.new(0, gameState.birdX, 0, gameState.y)
     end
 end)
 
