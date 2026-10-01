@@ -1340,13 +1340,13 @@ local gameState = {
     spawnTimer = 0,
     spawnInterval = 1.6,
     pipes = {},
-    gap = 110,
+    gap = 90,
     pipeW = 46,
     birdW = 26,
     birdH = 18,
     birdX = 60,
-    gravity = 1400,
-    flapPower = -270,
+    gravity = 1000,
+    flapPower = -230,
     hasStarted = false,
 }
 
