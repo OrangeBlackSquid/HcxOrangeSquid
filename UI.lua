@@ -355,7 +355,7 @@ TabBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 TabBar.BorderSizePixel = 0
 TabBar.ScrollBarThickness = 2
 TabBar.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
-TabBar.ScrollDirection = Enum.ScrollDirection.Horizontal
+TabBar.ScrollingDirection = Enum.ScrollingDirection.X
 TabBar.CanvasSize = UDim2.new(0, 800, 0, 0)
 TabBar.Parent = MainFrame
 corner(TabBar, 6)
@@ -542,7 +542,7 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
     searchBox.Size = UDim2.new(1, 0, 0, 28)
     searchBox.Position = UDim2.new(0, 0, 0, 36)
     searchBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    searchBox.PlaceholderText = "🔍 Search..."
+    searchBox.PlaceholderText = "Search..."
     searchBox.Text = ""
     searchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     searchBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
@@ -703,7 +703,7 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
                     toggleFav(favKey)
                     star.Text = isFav(favKey) and "★" or "☆"
                     star.TextColor3 = isFav(favKey) and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(180, 180, 180)
-                    showToast(isFav(favKey) and ("★ Favorited: " .. entry.name) or ("Removed favorite: " .. entry.name),
+                    showToast(isFav(favKey) and ("Favorited: " .. entry.name) or ("Unfavorited: " .. entry.name),
                         isFav(favKey) and Color3.fromRGB(140, 100, 30) or Color3.fromRGB(60, 60, 60), 1.5)
                 end)
 
@@ -849,7 +849,7 @@ local ScriptsTitleBtn = Instance.new("TextButton")
 ScriptsTitleBtn.Size = UDim2.new(1, 0, 0, 30)
 ScriptsTitleBtn.Position = UDim2.new(0, 0, 0, 0)
 ScriptsTitleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 120)
-ScriptsTitleBtn.Text = "📜 My Scripts"
+ScriptsTitleBtn.Text = "My Scripts"
 ScriptsTitleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ScriptsTitleBtn.TextSize = 14
 ScriptsTitleBtn.Font = Enum.Font.GothamBold
@@ -867,7 +867,7 @@ local presetsSearch = Instance.new("TextBox")
 presetsSearch.Size = UDim2.new(1, 0, 0, 28)
 presetsSearch.Position = UDim2.new(0, 0, 0, 0)
 presetsSearch.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-presetsSearch.PlaceholderText = "🔍 Search presets..."
+presetsSearch.PlaceholderText = "Search presets..."
 presetsSearch.Text = ""
 presetsSearch.TextColor3 = Color3.fromRGB(255, 255, 255)
 presetsSearch.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
@@ -929,7 +929,7 @@ local function refreshPresets()
                 toggleFav(favKey)
                 star.Text = isFav(favKey) and "★" or "☆"
                 star.TextColor3 = isFav(favKey) and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(180, 180, 180)
-                showToast(isFav(favKey) and ("★ " .. p.name) or ("Removed: " .. p.name),
+                showToast(isFav(favKey) and (p.name) or ("Removed: " .. p.name),
                     isFav(favKey) and Color3.fromRGB(140, 100, 30) or Color3.fromRGB(60, 60, 60), 1.5)
             end)
 
@@ -974,7 +974,7 @@ local function showScriptsSubPage(custom)
     onCustomPage = custom
     MainScriptsPage.Visible = not custom
     CustomPage.Visible = custom
-    ScriptsTitleBtn.Text = custom and "← Back to Presets" or "📜 My Scripts"
+    ScriptsTitleBtn.Text = custom and "Back to Presets" or "My Scripts"
 end
 ScriptsTitleBtn.MouseButton1Click:Connect(function()
     showScriptsSubPage(not onCustomPage)
@@ -990,7 +990,7 @@ local hubsSearch = Instance.new("TextBox")
 hubsSearch.Size = UDim2.new(1, 0, 0, 28)
 hubsSearch.Position = UDim2.new(0, 0, 0, 0)
 hubsSearch.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-hubsSearch.PlaceholderText = "🔍 Search hubs..."
+hubsSearch.PlaceholderText = "Search hubs..."
 hubsSearch.Text = ""
 hubsSearch.TextColor3 = Color3.fromRGB(255, 255, 255)
 hubsSearch.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
@@ -1044,7 +1044,7 @@ local function refreshHubs()
                 toggleFav(favKey)
                 star.Text = isFav(favKey) and "★" or "☆"
                 star.TextColor3 = isFav(favKey) and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(180, 180, 180)
-                showToast(isFav(favKey) and ("★ " .. hub.name) or ("Removed: " .. hub.name),
+                showToast(isFav(favKey) and (hub.name) or ("Removed: " .. hub.name),
                     isFav(favKey) and Color3.fromRGB(140, 100, 30) or Color3.fromRGB(60, 60, 60), 1.5)
             end)
 
@@ -1193,7 +1193,7 @@ local giveToolBtn = Instance.new("TextButton")
 giveToolBtn.Size = UDim2.new(1, 0, 0, 36)
 giveToolBtn.Position = UDim2.new(0, 0, 0, 0)
 giveToolBtn.BackgroundColor3 = Color3.fromRGB(70, 120, 120)
-giveToolBtn.Text = "🎯 Give Click TP Tool"
+giveToolBtn.Text = "Give Click TP Tool"
 giveToolBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 giveToolBtn.TextSize = 14
 giveToolBtn.Font = Enum.Font.GothamBold
@@ -1267,7 +1267,7 @@ local function refreshTPList()
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, -6, 0, 34)
         btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        btn.Text = "➤ " .. p.Name
+        btn.Text = "-> " .. p.Name
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btn.TextSize = 14
         btn.Font = Enum.Font.Gotham
@@ -1396,7 +1396,7 @@ makeCheckRow(CharList, "Freecam", false, function(on)
             CFrame = cam.CFrame,
         }
         cam.CameraType = Enum.CameraType.Scriptable
-        showToast("Freecam on - drag right side to look", Color3.fromRGB(70, 70, 90), 2)
+        showToast("Freecam on", Color3.fromRGB(70, 70, 90), 2)
     else
         if Freecam.saved then
             pcall(function()
@@ -1467,7 +1467,7 @@ local function bigBtn(text, color, onClick)
     return b
 end
 
-bigBtn("📋 Copy Job ID", Color3.fromRGB(70, 70, 120), function()
+bigBtn("Copy Job ID", Color3.fromRGB(70, 70, 120), function()
     if typeof(setclipboard) == "function" then
         pcall(setclipboard, game.JobId)
         showToast("Job ID copied", Color3.fromRGB(60, 100, 120), 2)
@@ -1476,14 +1476,14 @@ bigBtn("📋 Copy Job ID", Color3.fromRGB(70, 70, 120), function()
     end
 end)
 
-bigBtn("↻ Rejoin Server", Color3.fromRGB(70, 120, 90), function()
+bigBtn("Rejoin Server", Color3.fromRGB(70, 120, 90), function()
     showToast("Rejoining...", Color3.fromRGB(70, 90, 90), 2)
     pcall(function()
         TeleportService:Teleport(game.PlaceId, LocalPlayer)
     end)
 end)
 
-bigBtn("🌐 Server Hop", Color3.fromRGB(70, 100, 140), function()
+bigBtn("Server Hop", Color3.fromRGB(70, 100, 140), function()
     showToast("Finding server...", Color3.fromRGB(80, 80, 140), 2)
     task.spawn(function()
         local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
@@ -1636,7 +1636,7 @@ local copyConsoleBtn = Instance.new("TextButton")
 copyConsoleBtn.Size = UDim2.new(0.5, -4, 0, 30)
 copyConsoleBtn.Position = UDim2.new(0, 0, 1, -34)
 copyConsoleBtn.BackgroundColor3 = Color3.fromRGB(70, 100, 120)
-copyConsoleBtn.Text = "📋 Copy Logs"
+copyConsoleBtn.Text = "Copy Logs"
 copyConsoleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 copyConsoleBtn.TextSize = 13
 copyConsoleBtn.Font = Enum.Font.GothamBold
@@ -1647,7 +1647,7 @@ local clearConsoleBtn = Instance.new("TextButton")
 clearConsoleBtn.Size = UDim2.new(0.5, -4, 0, 30)
 clearConsoleBtn.Position = UDim2.new(0.5, 4, 1, -34)
 clearConsoleBtn.BackgroundColor3 = Color3.fromRGB(120, 70, 70)
-clearConsoleBtn.Text = "🗑 Clear"
+clearConsoleBtn.Text = "Clear"
 clearConsoleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 clearConsoleBtn.TextSize = 13
 clearConsoleBtn.Font = Enum.Font.GothamBold
