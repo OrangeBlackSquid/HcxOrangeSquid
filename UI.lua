@@ -120,7 +120,7 @@ local Themes = {
         fontBold = Enum.Font.GothamBold,
         corner = 3,
         toastDuration = 3.2,
-        clickSound = "rbxassetid://5790873721",
+        clickSound = "rbxassetid://131961136",
     },
     Calm = {
         bg = Color3.fromRGB(28, 42, 52),
@@ -196,7 +196,7 @@ local Themes = {
         fontBold = Enum.Font.GothamBold,
         corner = 8,
         toastDuration = 4.0,
-        clickSound = "rbxassetid://5790873721",
+        clickSound = "rbxassetid://6042053626",
     },
     Love = {
         bg = Color3.fromRGB(52, 30, 42),
@@ -272,7 +272,7 @@ local Themes = {
         fontBold = Enum.Font.GothamBold,
         corner = 6,
         toastDuration = 4.2,
-        clickSound = "rbxassetid://5790873721",
+        clickSound = "rbxassetid://9120386436",
     },
     Confidence = {
         bg = Color3.fromRGB(22, 28, 44),
@@ -698,7 +698,6 @@ MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.BorderSizePixel = 0
-MainFrame:SetAttribute("SkipTheme", false)
 MainFrame.Parent = ScreenGui
 corner(MainFrame, 8)
 
@@ -1760,6 +1759,7 @@ fileWarrantBtn.Text = "File Warrant"
 fileWarrantBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 fileWarrantBtn.TextSize = 14
 fileWarrantBtn.Font = Enum.Font.GothamBold
+fileWarrantBtn:SetAttribute("SkipTheme", true)
 fileWarrantBtn.Parent = warrantRight
 corner(fileWarrantBtn, 6)
 
@@ -3299,22 +3299,23 @@ local function tagElement(obj)
     if obj:GetAttribute("SkipTheme") then return end
     if obj:GetAttribute("ThemeTagged") then return end
 
+    local isTextElement = obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")
+
     local bg = obj.BackgroundColor3
-    local tc = obj.TextColor3
-
     local bgRole = BaselineRoles[bg]
-    local tcRole = BaselineRoles[tc]
-
     if bgRole then obj:SetAttribute("BgRole", bgRole) end
-    if tcRole then obj:SetAttribute("TextRole", tcRole) end
-    if obj:IsA("TextBox") then
-        local pcRole = BaselineRoles[obj.PlaceholderColor3]
-        if pcRole then obj:SetAttribute("PlaceholderRole", pcRole) end
-    end
 
-    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-        local f = obj.Font
-        local orig = f.Name
+    if isTextElement then
+        local tc = obj.TextColor3
+        local tcRole = BaselineRoles[tc]
+        if tcRole then obj:SetAttribute("TextRole", tcRole) end
+
+        if obj:IsA("TextBox") then
+            local pcRole = BaselineRoles[obj.PlaceholderColor3]
+            if pcRole then obj:SetAttribute("PlaceholderRole", pcRole) end
+        end
+
+        local orig = obj.Font.Name
         if orig == "GothamBold" or orig == "GothamBlack" or orig == "Code" then
             obj:SetAttribute("BoldFont", true)
         else
@@ -3335,19 +3336,20 @@ local function applyToElement(obj, theme)
         obj.BackgroundColor3 = theme[bgRole]
     end
 
-    local tcRole = obj:GetAttribute("TextRole")
-    if tcRole and theme[tcRole] then
-        obj.TextColor3 = theme[tcRole]
-    end
-
-    if obj:IsA("TextBox") then
-        local pcRole = obj:GetAttribute("PlaceholderRole")
-        if pcRole and theme[pcRole] then
-            obj.PlaceholderColor3 = theme[pcRole]
+    local isTextElement = obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")
+    if isTextElement then
+        local tcRole = obj:GetAttribute("TextRole")
+        if tcRole and theme[tcRole] then
+            obj.TextColor3 = theme[tcRole]
         end
-    end
 
-    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+        if obj:IsA("TextBox") then
+            local pcRole = obj:GetAttribute("PlaceholderRole")
+            if pcRole and theme[pcRole] then
+                obj.PlaceholderColor3 = theme[pcRole]
+            end
+        end
+
         local isBold = obj:GetAttribute("BoldFont")
         if isBold == nil then
             isBold = (obj.Font == Enum.Font.GothamBold)
@@ -3367,7 +3369,7 @@ applyTheme = function(name)
     CurrentTheme = name
 
     for _, obj in ipairs(ScreenGui:GetDescendants()) do
-        applyToElement(obj, theme)
+        pcall(applyToElement, obj, theme)
     end
 
     clickSound.SoundId = theme.clickSound or ""
@@ -3378,7 +3380,7 @@ ScreenGui.DescendantAdded:Connect(function(obj)
     if not obj:IsA("GuiObject") then return end
     task.defer(function()
         if obj.Parent and Themes[CurrentTheme] then
-            applyToElement(obj, Themes[CurrentTheme])
+            pcall(applyToElement, obj, Themes[CurrentTheme])
         end
     end)
 end)
@@ -3390,7 +3392,7 @@ local function hookClick(btn)
         local theme = Themes[CurrentTheme]
         if theme and theme.clickSound then
             clickSound.SoundId = theme.clickSound
-            clickSound:Play()
+            pcall(function() clickSound:Play() end)
         end
     end)
 end
@@ -3475,7 +3477,6 @@ Icon.TextColor3 = Color3.fromRGB(255, 255, 255)
 Icon.TextSize = 30
 Icon.Font = Enum.Font.GothamBold
 Icon.Visible = false
-Icon:SetAttribute("SkipTheme", false)
 Icon.Parent = ScreenGui
 corner(Icon, 25)
 
@@ -3527,6 +3528,7 @@ task.defer(function()
     task.wait(0.3)
     if Themes[CurrentTheme] then
         applyTheme(CurrentTheme)
+        dropdownBtn.Text = CurrentTheme .. "  ▼"
     end
 end)
 
