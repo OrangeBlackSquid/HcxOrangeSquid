@@ -62,6 +62,272 @@ local ChatMessages  = loadJsonFile("chat_messages.json")
 local Warrants      = loadJsonFile("warrants.json")
 local Records       = loadJsonFile("records.json")
 
+local CurrentTheme = "Normal"
+pcall(function()
+    if typeof(readfile) == "function" then
+        local ok, data = pcall(readfile, "theme.json")
+        if ok and data and data ~= "" then
+            local ok2, d = pcall(HttpService.JSONDecode, HttpService, data)
+            if ok2 and type(d) == "table" and d.theme and type(d.theme) == "string" then
+                CurrentTheme = d.theme
+            end
+        end
+    end
+end)
+
+local function saveTheme(name)
+    pcall(function()
+        if typeof(writefile) == "function" then
+            writefile("theme.json", HttpService:JSONEncode({ theme = name }))
+        end
+    end)
+end
+
+local Themes = {
+    Normal = {
+        bg = Color3.fromRGB(30, 30, 30),
+        tabBar = Color3.fromRGB(20, 20, 20),
+        bgAlt = Color3.fromRGB(22, 22, 22),
+        bgDeep = Color3.fromRGB(15, 15, 15),
+        panel = Color3.fromRGB(50, 50, 50),
+        panelDark = Color3.fromRGB(40, 40, 40),
+        input = Color3.fromRGB(25, 25, 25),
+        accent = Color3.fromRGB(70, 70, 120),
+        accentWarn = Color3.fromRGB(220, 130, 40),
+        text = Color3.fromRGB(255, 255, 255),
+        subtext = Color3.fromRGB(180, 180, 180),
+        subtextDim = Color3.fromRGB(120, 120, 120),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 6,
+        toastDuration = 2.5,
+        clickSound = nil,
+    },
+    Anxiety = {
+        bg = Color3.fromRGB(38, 26, 52),
+        tabBar = Color3.fromRGB(24, 16, 34),
+        bgAlt = Color3.fromRGB(30, 20, 42),
+        bgDeep = Color3.fromRGB(18, 12, 26),
+        panel = Color3.fromRGB(72, 48, 100),
+        panelDark = Color3.fromRGB(52, 34, 72),
+        input = Color3.fromRGB(30, 20, 42),
+        accent = Color3.fromRGB(140, 80, 200),
+        accentWarn = Color3.fromRGB(190, 120, 220),
+        text = Color3.fromRGB(245, 230, 255),
+        subtext = Color3.fromRGB(190, 160, 220),
+        subtextDim = Color3.fromRGB(140, 110, 175),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 3,
+        toastDuration = 3.2,
+        clickSound = "rbxassetid://5790873721",
+    },
+    Calm = {
+        bg = Color3.fromRGB(28, 42, 52),
+        tabBar = Color3.fromRGB(18, 30, 40),
+        bgAlt = Color3.fromRGB(22, 34, 44),
+        bgDeep = Color3.fromRGB(14, 22, 30),
+        panel = Color3.fromRGB(46, 68, 84),
+        panelDark = Color3.fromRGB(34, 52, 66),
+        input = Color3.fromRGB(22, 34, 44),
+        accent = Color3.fromRGB(70, 130, 160),
+        accentWarn = Color3.fromRGB(120, 180, 200),
+        text = Color3.fromRGB(225, 240, 248),
+        subtext = Color3.fromRGB(160, 190, 205),
+        subtextDim = Color3.fromRGB(115, 145, 160),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 12,
+        toastDuration = 3.4,
+        clickSound = "rbxassetid://6042053626",
+    },
+    Anger = {
+        bg = Color3.fromRGB(40, 22, 22),
+        tabBar = Color3.fromRGB(26, 12, 12),
+        bgAlt = Color3.fromRGB(32, 16, 16),
+        bgDeep = Color3.fromRGB(20, 8, 8),
+        panel = Color3.fromRGB(75, 38, 38),
+        panelDark = Color3.fromRGB(55, 26, 26),
+        input = Color3.fromRGB(34, 18, 18),
+        accent = Color3.fromRGB(200, 40, 40),
+        accentWarn = Color3.fromRGB(255, 90, 60),
+        text = Color3.fromRGB(255, 235, 235),
+        subtext = Color3.fromRGB(220, 160, 160),
+        subtextDim = Color3.fromRGB(170, 110, 110),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 2,
+        toastDuration = 1.3,
+        clickSound = "rbxassetid://131961136",
+    },
+    Joy = {
+        bg = Color3.fromRGB(48, 42, 24),
+        tabBar = Color3.fromRGB(32, 28, 14),
+        bgAlt = Color3.fromRGB(40, 35, 20),
+        bgDeep = Color3.fromRGB(24, 20, 10),
+        panel = Color3.fromRGB(90, 78, 42),
+        panelDark = Color3.fromRGB(66, 58, 30),
+        input = Color3.fromRGB(40, 35, 20),
+        accent = Color3.fromRGB(240, 180, 40),
+        accentWarn = Color3.fromRGB(255, 210, 90),
+        text = Color3.fromRGB(255, 250, 220),
+        subtext = Color3.fromRGB(230, 210, 150),
+        subtextDim = Color3.fromRGB(180, 160, 110),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 10,
+        toastDuration = 2.0,
+        clickSound = "rbxassetid://9120386436",
+    },
+    Sadness = {
+        bg = Color3.fromRGB(24, 30, 44),
+        tabBar = Color3.fromRGB(16, 20, 30),
+        bgAlt = Color3.fromRGB(20, 25, 36),
+        bgDeep = Color3.fromRGB(12, 16, 24),
+        panel = Color3.fromRGB(40, 50, 70),
+        panelDark = Color3.fromRGB(30, 38, 54),
+        input = Color3.fromRGB(20, 25, 36),
+        accent = Color3.fromRGB(60, 90, 150),
+        accentWarn = Color3.fromRGB(90, 120, 170),
+        text = Color3.fromRGB(215, 225, 240),
+        subtext = Color3.fromRGB(140, 155, 180),
+        subtextDim = Color3.fromRGB(95, 110, 135),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 8,
+        toastDuration = 4.0,
+        clickSound = "rbxassetid://5790873721",
+    },
+    Love = {
+        bg = Color3.fromRGB(52, 30, 42),
+        tabBar = Color3.fromRGB(36, 20, 30),
+        bgAlt = Color3.fromRGB(44, 26, 36),
+        bgDeep = Color3.fromRGB(28, 16, 22),
+        panel = Color3.fromRGB(90, 50, 70),
+        panelDark = Color3.fromRGB(66, 36, 52),
+        input = Color3.fromRGB(42, 24, 34),
+        accent = Color3.fromRGB(230, 100, 150),
+        accentWarn = Color3.fromRGB(255, 150, 180),
+        text = Color3.fromRGB(255, 230, 240),
+        subtext = Color3.fromRGB(230, 170, 190),
+        subtextDim = Color3.fromRGB(180, 120, 140),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 14,
+        toastDuration = 2.8,
+        clickSound = "rbxassetid://6042053626",
+    },
+    Fear = {
+        bg = Color3.fromRGB(20, 28, 22),
+        tabBar = Color3.fromRGB(12, 18, 14),
+        bgAlt = Color3.fromRGB(16, 24, 18),
+        bgDeep = Color3.fromRGB(8, 14, 10),
+        panel = Color3.fromRGB(34, 48, 38),
+        panelDark = Color3.fromRGB(24, 36, 28),
+        input = Color3.fromRGB(16, 24, 18),
+        accent = Color3.fromRGB(50, 100, 70),
+        accentWarn = Color3.fromRGB(90, 140, 100),
+        text = Color3.fromRGB(210, 230, 215),
+        subtext = Color3.fromRGB(140, 170, 150),
+        subtextDim = Color3.fromRGB(95, 120, 100),
+        font = Enum.Font.Code,
+        fontBold = Enum.Font.Code,
+        corner = 0,
+        toastDuration = 1.5,
+        clickSound = "rbxassetid://131961136",
+    },
+    Excitement = {
+        bg = Color3.fromRGB(48, 26, 48),
+        tabBar = Color3.fromRGB(32, 16, 32),
+        bgAlt = Color3.fromRGB(40, 20, 40),
+        bgDeep = Color3.fromRGB(24, 12, 24),
+        panel = Color3.fromRGB(90, 40, 100),
+        panelDark = Color3.fromRGB(66, 30, 72),
+        input = Color3.fromRGB(40, 20, 44),
+        accent = Color3.fromRGB(255, 90, 180),
+        accentWarn = Color3.fromRGB(255, 140, 60),
+        text = Color3.fromRGB(255, 235, 255),
+        subtext = Color3.fromRGB(230, 170, 230),
+        subtextDim = Color3.fromRGB(180, 120, 180),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 6,
+        toastDuration = 1.2,
+        clickSound = "rbxassetid://9120386436",
+    },
+    Melancholy = {
+        bg = Color3.fromRGB(38, 38, 42),
+        tabBar = Color3.fromRGB(26, 26, 30),
+        bgAlt = Color3.fromRGB(32, 32, 36),
+        bgDeep = Color3.fromRGB(20, 20, 24),
+        panel = Color3.fromRGB(62, 62, 68),
+        panelDark = Color3.fromRGB(48, 48, 54),
+        input = Color3.fromRGB(32, 32, 36),
+        accent = Color3.fromRGB(110, 110, 120),
+        accentWarn = Color3.fromRGB(150, 150, 160),
+        text = Color3.fromRGB(230, 230, 235),
+        subtext = Color3.fromRGB(170, 170, 180),
+        subtextDim = Color3.fromRGB(120, 120, 130),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 6,
+        toastDuration = 4.2,
+        clickSound = "rbxassetid://5790873721",
+    },
+    Confidence = {
+        bg = Color3.fromRGB(22, 28, 44),
+        tabBar = Color3.fromRGB(14, 20, 34),
+        bgAlt = Color3.fromRGB(18, 24, 40),
+        bgDeep = Color3.fromRGB(10, 16, 28),
+        panel = Color3.fromRGB(36, 46, 68),
+        panelDark = Color3.fromRGB(26, 34, 52),
+        input = Color3.fromRGB(18, 24, 40),
+        accent = Color3.fromRGB(220, 180, 60),
+        accentWarn = Color3.fromRGB(240, 210, 100),
+        text = Color3.fromRGB(240, 235, 215),
+        subtext = Color3.fromRGB(180, 175, 150),
+        subtextDim = Color3.fromRGB(130, 125, 100),
+        font = Enum.Font.Gotham,
+        fontBold = Enum.Font.GothamBold,
+        corner = 3,
+        toastDuration = 2.2,
+        clickSound = "rbxassetid://131961136",
+    },
+}
+
+local ThemeOrder = {
+    "Normal", "Anxiety", "Calm", "Anger", "Joy",
+    "Sadness", "Love", "Fear", "Excitement", "Melancholy", "Confidence"
+}
+
+local BaselineRoles = {
+    [Color3.fromRGB(30, 30, 30)] = "bg",
+    [Color3.fromRGB(20, 20, 20)] = "tabBar",
+    [Color3.fromRGB(22, 22, 22)] = "bgAlt",
+    [Color3.fromRGB(15, 15, 15)] = "bgDeep",
+    [Color3.fromRGB(50, 50, 50)] = "panel",
+    [Color3.fromRGB(45, 45, 45)] = "panel",
+    [Color3.fromRGB(60, 60, 60)] = "panel",
+    [Color3.fromRGB(80, 80, 80)] = "panel",
+    [Color3.fromRGB(100, 100, 100)] = "panel",
+    [Color3.fromRGB(40, 40, 40)] = "panelDark",
+    [Color3.fromRGB(35, 35, 35)] = "panelDark",
+    [Color3.fromRGB(25, 25, 25)] = "input",
+    [Color3.fromRGB(70, 70, 120)] = "accent",
+    [Color3.fromRGB(70, 90, 130)] = "accent",
+    [Color3.fromRGB(60, 80, 120)] = "accent",
+    [Color3.fromRGB(70, 100, 120)] = "accent",
+    [Color3.fromRGB(50, 50, 200)] = "accent",
+    [Color3.fromRGB(220, 130, 40)] = "accentWarn",
+    [Color3.fromRGB(255, 255, 255)] = "text",
+    [Color3.fromRGB(220, 220, 220)] = "text",
+    [Color3.fromRGB(200, 200, 200)] = "text",
+    [Color3.fromRGB(180, 180, 180)] = "subtext",
+    [Color3.fromRGB(150, 150, 150)] = "subtext",
+    [Color3.fromRGB(140, 140, 140)] = "subtext",
+    [Color3.fromRGB(120, 120, 120)] = "subtextDim",
+}
+
 local function isFav(key) return Favorites[key] == true end
 local function toggleFav(key)
     if Favorites[key] then Favorites[key] = nil else Favorites[key] = true end
@@ -342,6 +608,11 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = UI_PARENT
 
+local clickSound = Instance.new("Sound")
+clickSound.Name = "UIClick"
+clickSound.Volume = 0.25
+clickSound.Parent = ScreenGui
+
 local function corner(p, r)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, r or 6)
@@ -353,6 +624,7 @@ local refreshPending
 local refreshWanted
 local refreshRecordsFor
 local openReviewDialog
+local applyTheme
 
 local ToastContainer = Instance.new("Frame")
 ToastContainer.Size = UDim2.new(1, 0, 0, 150)
@@ -372,7 +644,7 @@ local toastOrder = 0
 
 local function showToast(text, color, duration)
     color = color or Color3.fromRGB(60, 60, 60)
-    duration = duration or 2.5
+    duration = duration or (Themes[CurrentTheme] and Themes[CurrentTheme].toastDuration or 2.5)
     toastOrder = toastOrder + 1
     local myOrder = toastOrder
 
@@ -384,8 +656,11 @@ local function showToast(text, color, duration)
         toast.BorderSizePixel = 0
         toast.LayoutOrder = -myOrder
         toast.ZIndex = 201
+        toast:SetAttribute("SkipTheme", true)
         toast.Parent = ToastContainer
-        corner(toast, 6)
+        local tc = Instance.new("UICorner")
+        tc.CornerRadius = UDim.new(0, Themes[CurrentTheme] and Themes[CurrentTheme].corner or 6)
+        tc.Parent = toast
 
         local lbl = Instance.new("TextLabel")
         lbl.Size = UDim2.new(1, -20, 1, 0)
@@ -394,10 +669,11 @@ local function showToast(text, color, duration)
         lbl.Text = text
         lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
         lbl.TextSize = 14
-        lbl.Font = Enum.Font.GothamBold
+        lbl.Font = Themes[CurrentTheme] and Themes[CurrentTheme].fontBold or Enum.Font.GothamBold
         lbl.TextTransparency = 1
         lbl.TextWrapped = true
         lbl.ZIndex = 202
+        lbl:SetAttribute("SkipTheme", true)
         lbl.Parent = toast
 
         pcall(function()
@@ -422,6 +698,7 @@ MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.BorderSizePixel = 0
+MainFrame:SetAttribute("SkipTheme", false)
 MainFrame.Parent = ScreenGui
 corner(MainFrame, 8)
 
@@ -447,6 +724,7 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = MainFrame
 
 local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
 CloseButton.Size = UDim2.new(0, 28, 0, 28)
 CloseButton.Position = UDim2.new(1, -33, 0, 4)
 CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
@@ -454,6 +732,7 @@ CloseButton.Text = "X"
 CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 CloseButton.TextSize = 16
 CloseButton.Font = Enum.Font.GothamBold
+CloseButton:SetAttribute("SkipTheme", true)
 CloseButton.Parent = MainFrame
 corner(CloseButton, 6)
 
@@ -465,7 +744,7 @@ TabBar.BorderSizePixel = 0
 TabBar.ScrollBarThickness = 2
 TabBar.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
 TabBar.ScrollingDirection = Enum.ScrollingDirection.X
-TabBar.CanvasSize = UDim2.new(0, 1600, 0, 0)
+TabBar.CanvasSize = UDim2.new(0, 1800, 0, 0)
 TabBar.Parent = MainFrame
 corner(TabBar, 6)
 
@@ -499,6 +778,7 @@ local function makeCheckRow(parentList, text, initial, onChange)
     box.TextColor3 = Color3.fromRGB(100, 220, 100)
     box.TextSize = 16
     box.Font = Enum.Font.GothamBold
+    box:SetAttribute("SkipTheme", true)
     box.Parent = row
     corner(box, 4)
 
@@ -543,6 +823,7 @@ local function makeColorRow(parentList, text, initialColor, onPick)
     swatch.Position = UDim2.new(1, -64, 0.5, -13)
     swatch.BackgroundColor3 = initialColor
     swatch.Text = ""
+    swatch:SetAttribute("SkipTheme", true)
     swatch.Parent = row
     corner(swatch, 4)
 
@@ -580,6 +861,7 @@ local function makeSliderRow(parentList, text, minV, maxV, initial, isFloat, onC
         resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         resetBtn.TextSize = 11
         resetBtn.Font = Enum.Font.GothamBold
+        resetBtn:SetAttribute("SkipTheme", true)
         resetBtn.Parent = row
         corner(resetBtn, 4)
         resetBtn.MouseButton1Click:Connect(function()
@@ -644,6 +926,7 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
     addBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     addBtn.TextSize = 14
     addBtn.Font = Enum.Font.GothamBold
+    addBtn:SetAttribute("SkipTheme", true)
     addBtn.Parent = page
     corner(addBtn, 6)
 
@@ -823,6 +1106,7 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
     confirmBtn.TextSize = 14
     confirmBtn.Font = Enum.Font.GothamBold
     confirmBtn.ZIndex = 91
+    confirmBtn:SetAttribute("SkipTheme", true)
     confirmBtn.Parent = form
     corner(confirmBtn, 6)
 
@@ -870,6 +1154,7 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
                 star.TextColor3 = isFav(favKey) and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(180, 180, 180)
                 star.TextSize = 16
                 star.Font = Enum.Font.GothamBold
+                star:SetAttribute("SkipTheme", true)
                 star.Parent = row
                 corner(star, 6)
                 star.MouseButton1Click:Connect(function()
@@ -949,6 +1234,7 @@ local function buildListPage(parent, dataStore, saveFile, addLabel, hintText, fa
                 del.TextColor3 = Color3.fromRGB(255, 255, 255)
                 del.TextSize = 14
                 del.Font = Enum.Font.GothamBold
+                del:SetAttribute("SkipTheme", true)
                 del.Parent = row
                 corner(del, 6)
                 del.MouseButton1Click:Connect(function()
@@ -1110,6 +1396,7 @@ local function makeSmallBtn(parent, text, x, y, w, h, color, onClick)
     b.TextColor3 = Color3.fromRGB(255, 255, 255)
     b.TextSize = 12
     b.Font = Enum.Font.GothamBold
+    b:SetAttribute("SkipTheme", true)
     b.Parent = parent
     corner(b, 5)
     b.MouseButton1Click:Connect(onClick)
@@ -1223,6 +1510,7 @@ local function refreshPresets()
             star.TextColor3 = isFav(favKey) and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(180, 180, 180)
             star.TextSize = 16
             star.Font = Enum.Font.GothamBold
+            star:SetAttribute("SkipTheme", true)
             star.Parent = row
             corner(star, 6)
             star.MouseButton1Click:Connect(function()
@@ -1338,6 +1626,7 @@ local function refreshHubs()
             star.TextColor3 = isFav(favKey) and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(180, 180, 180)
             star.TextSize = 16
             star.Font = Enum.Font.GothamBold
+            star:SetAttribute("SkipTheme", true)
             star.Parent = row
             corner(star, 6)
             star.MouseButton1Click:Connect(function()
@@ -1617,6 +1906,7 @@ openReviewDialog = function(warrantId, action)
     confirmBtn.TextSize = 14
     confirmBtn.Font = Enum.Font.GothamBold
     confirmBtn.ZIndex = 121
+    confirmBtn:SetAttribute("SkipTheme", true)
     confirmBtn.Parent = form
     corner(confirmBtn, 6)
 
@@ -1688,6 +1978,7 @@ refreshPending = function()
             targetLbl.Font = Enum.Font.GothamBold
             targetLbl.TextXAlignment = Enum.TextXAlignment.Left
             targetLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            targetLbl:SetAttribute("SkipTheme", true)
             targetLbl.Parent = item
 
             local reasonLbl = Instance.new("TextLabel")
@@ -1773,6 +2064,7 @@ refreshWanted = function()
             item.Size = UDim2.new(1, -6, 0, 90)
             item.BackgroundColor3 = Color3.fromRGB(60, 40, 20)
             item.BorderSizePixel = 0
+            item:SetAttribute("SkipTheme", true)
             item.Parent = WantedList
             corner(item, 6)
 
@@ -1786,6 +2078,7 @@ refreshWanted = function()
             nameLbl.Font = Enum.Font.GothamBold
             nameLbl.TextXAlignment = Enum.TextXAlignment.Left
             nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            nameLbl:SetAttribute("SkipTheme", true)
             nameLbl.Parent = item
 
             local reasonLbl = Instance.new("TextLabel")
@@ -1810,6 +2103,7 @@ refreshWanted = function()
             clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
             clearBtn.TextSize = 12
             clearBtn.Font = Enum.Font.GothamBold
+            clearBtn:SetAttribute("SkipTheme", true)
             clearBtn.Parent = item
             corner(clearBtn, 4)
 
@@ -2022,6 +2316,7 @@ gameArea.Position = UDim2.new(0, 0, 0, 0)
 gameArea.BackgroundColor3 = Color3.fromRGB(28, 38, 52)
 gameArea.BorderSizePixel = 0
 gameArea.ClipsDescendants = true
+gameArea:SetAttribute("SkipTheme", true)
 gameArea.Parent = GameTab
 corner(gameArea, 10)
 
@@ -2036,6 +2331,7 @@ scoreLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 scoreLabel.TextSize = 36
 scoreLabel.Font = Enum.Font.GothamBold
 scoreLabel.ZIndex = 5
+scoreLabel:SetAttribute("SkipTheme", true)
 scoreLabel.Parent = gameArea
 
 local gameHint = Instance.new("TextLabel")
@@ -2049,6 +2345,7 @@ gameHint.TextSize = 14
 gameHint.Font = Enum.Font.GothamBold
 gameHint.TextWrapped = true
 gameHint.ZIndex = 4
+gameHint:SetAttribute("SkipTheme", true)
 gameHint.Parent = gameArea
 
 local bird = Instance.new("Frame")
@@ -2059,6 +2356,7 @@ bird.BorderSizePixel = 0
 bird.ZIndex = 3
 bird.Visible = false
 bird.Rotation = 0
+bird:SetAttribute("SkipTheme", true)
 bird.Parent = gameArea
 corner(bird, 4)
 
@@ -2070,6 +2368,7 @@ gameBtn.Text = "Start"
 gameBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 gameBtn.TextSize = 14
 gameBtn.Font = Enum.Font.GothamBold
+gameBtn:SetAttribute("SkipTheme", true)
 gameBtn.Parent = GameTab
 corner(gameBtn, 6)
 
@@ -2117,6 +2416,7 @@ local function spawnPipe()
     top.BackgroundColor3 = Color3.fromRGB(85, 195, 100)
     top.BorderSizePixel = 0
     top.ZIndex = 2
+    top:SetAttribute("SkipTheme", true)
     top.Parent = gameArea
     corner(top, 4)
 
@@ -2126,6 +2426,7 @@ local function spawnPipe()
     bottom.BackgroundColor3 = Color3.fromRGB(85, 195, 100)
     bottom.BorderSizePixel = 0
     bottom.ZIndex = 2
+    bottom:SetAttribute("SkipTheme", true)
     bottom.Parent = gameArea
     corner(bottom, 4)
 
@@ -2840,6 +3141,7 @@ clearConsoleBtn.Text = "Clear"
 clearConsoleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 clearConsoleBtn.TextSize = 13
 clearConsoleBtn.Font = Enum.Font.GothamBold
+clearConsoleBtn:SetAttribute("SkipTheme", true)
 clearConsoleBtn.Parent = ConsoleTab
 corner(clearConsoleBtn, 6)
 
@@ -2862,149 +3164,243 @@ clearConsoleBtn.MouseButton1Click:Connect(function()
     showToast("Console cleared", Color3.fromRGB(80, 60, 60), 1.5)
 end)
 
-openColorPicker = function(title, initialColor, onConfirm)
-    local picker = Instance.new("Frame")
-    picker.Size = UDim2.new(1, -30, 0, 260)
-    picker.Position = UDim2.new(0, 15, 0.5, -130)
-    picker.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    picker.BorderSizePixel = 0
-    picker.ZIndex = 100
-    picker.Parent = MainFrame
-    corner(picker, 8)
+local SettingsTab = Instance.new("Frame")
+SettingsTab.Size = UDim2.new(1, 0, 1, 0)
+SettingsTab.BackgroundTransparency = 1
+SettingsTab.Visible = false
+SettingsTab.Parent = ContentArea
 
-    local t = Instance.new("TextLabel")
-    t.Size = UDim2.new(1, -20, 0, 25)
-    t.Position = UDim2.new(0, 10, 0, 5)
-    t.BackgroundTransparency = 1
-    t.Text = title or "Pick Color"
-    t.TextColor3 = Color3.fromRGB(255, 255, 255)
-    t.TextSize = 15
-    t.Font = Enum.Font.GothamBold
-    t.TextXAlignment = Enum.TextXAlignment.Left
-    t.ZIndex = 101
-    t.Parent = picker
+local SettingsList = Instance.new("ScrollingFrame")
+SettingsList.Size = UDim2.new(1, 0, 1, 0)
+SettingsList.BackgroundTransparency = 1
+SettingsList.BorderSizePixel = 0
+SettingsList.ScrollBarThickness = 4
+SettingsList.CanvasSize = UDim2.new(0, 0, 0, 300)
+SettingsList.Parent = SettingsTab
 
-    local preview = Instance.new("Frame")
-    preview.Size = UDim2.new(1, -20, 0, 28)
-    preview.Position = UDim2.new(0, 10, 0, 32)
-    preview.BackgroundColor3 = initialColor
-    preview.BorderSizePixel = 0
-    preview.ZIndex = 101
-    preview.Parent = picker
-    corner(preview, 4)
+local settingsLayout = Instance.new("UIListLayout")
+settingsLayout.Padding = UDim.new(0, 6)
+settingsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+settingsLayout.Parent = SettingsList
+settingsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    SettingsList.CanvasSize = UDim2.new(0, 0, 0, settingsLayout.AbsoluteContentSize.Y + 8)
+end)
 
-    local r = math.floor(initialColor.R * 255)
-    local g = math.floor(initialColor.G * 255)
-    local b = math.floor(initialColor.B * 255)
+local personalizeHeader = Instance.new("TextLabel")
+personalizeHeader.Size = UDim2.new(1, -6, 0, 22)
+personalizeHeader.BackgroundTransparency = 1
+personalizeHeader.Text = "Personalized"
+personalizeHeader.TextColor3 = Color3.fromRGB(220, 220, 220)
+personalizeHeader.TextSize = 15
+personalizeHeader.Font = Enum.Font.GothamBold
+personalizeHeader.TextXAlignment = Enum.TextXAlignment.Left
+personalizeHeader.Parent = SettingsList
 
-    local function update()
-        preview.BackgroundColor3 = Color3.fromRGB(r, g, b)
-    end
+local dropdownRow = Instance.new("Frame")
+dropdownRow.Size = UDim2.new(1, -6, 0, 40)
+dropdownRow.BackgroundTransparency = 1
+dropdownRow.Parent = SettingsList
 
-    local function makeSlider(y, label, val, setter)
-        local cont = Instance.new("Frame")
-        cont.Size = UDim2.new(1, -20, 0, 30)
-        cont.Position = UDim2.new(0, 10, 0, y)
-        cont.BackgroundTransparency = 1
-        cont.ZIndex = 101
-        cont.Parent = picker
+local dropdownLabel = Instance.new("TextLabel")
+dropdownLabel.Size = UDim2.new(0.4, 0, 1, 0)
+dropdownLabel.BackgroundTransparency = 1
+dropdownLabel.Text = "Personality:"
+dropdownLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+dropdownLabel.TextSize = 13
+dropdownLabel.Font = Enum.Font.Gotham
+dropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+dropdownLabel.Parent = dropdownRow
 
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(0, 20, 1, 0)
-        lbl.BackgroundTransparency = 1
-        lbl.Text = label
-        lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-        lbl.TextSize = 14
-        lbl.Font = Enum.Font.GothamBold
-        lbl.ZIndex = 101
-        lbl.Parent = cont
+local dropdownBtn = Instance.new("TextButton")
+dropdownBtn.Size = UDim2.new(0.6, 0, 1, 0)
+dropdownBtn.Position = UDim2.new(0.4, 0, 0, 0)
+dropdownBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+dropdownBtn.Text = CurrentTheme .. "  ▼"
+dropdownBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+dropdownBtn.TextSize = 13
+dropdownBtn.Font = Enum.Font.GothamBold
+dropdownBtn.Parent = dropdownRow
+corner(dropdownBtn, 6)
 
-        local bar = Instance.new("TextButton")
-        bar.Size = UDim2.new(1, -70, 0, 10)
-        bar.Position = UDim2.new(0, 25, 0.5, -5)
-        bar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        bar.Text = ""
-        bar.AutoButtonColor = false
-        bar.ZIndex = 101
-        bar.Parent = cont
-        corner(bar, 5)
+local dropdownMenu = Instance.new("ScrollingFrame")
+dropdownMenu.Size = UDim2.new(1, -6, 0, 0)
+dropdownMenu.Position = UDim2.new(0, 0, 0, 46)
+dropdownMenu.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+dropdownMenu.BorderSizePixel = 0
+dropdownMenu.ScrollBarThickness = 3
+dropdownMenu.CanvasSize = UDim2.new(0, 0, 0, 0)
+dropdownMenu.Visible = false
+dropdownMenu.ZIndex = 5
+dropdownMenu.Parent = SettingsTab
+corner(dropdownMenu, 6)
 
-        local fill = Instance.new("Frame")
-        fill.Size = UDim2.new(val / 255, 0, 1, 0)
-        fill.BackgroundColor3 = Color3.fromRGB(120, 120, 200)
-        fill.BorderSizePixel = 0
-        fill.ZIndex = 102
-        fill.Parent = bar
-        corner(fill, 5)
+local dropdownLayout = Instance.new("UIListLayout")
+dropdownLayout.Padding = UDim.new(0, 2)
+dropdownLayout.Parent = dropdownMenu
+dropdownLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    dropdownMenu.CanvasSize = UDim2.new(0, 0, 0, dropdownLayout.AbsoluteContentSize.Y + 6)
+end)
 
-        local vLbl = Instance.new("TextLabel")
-        vLbl.Size = UDim2.new(0, 40, 1, 0)
-        vLbl.Position = UDim2.new(1, -40, 0, 0)
-        vLbl.BackgroundTransparency = 1
-        vLbl.Text = tostring(math.floor(val))
-        vLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-        vLbl.TextSize = 13
-        vLbl.Font = Enum.Font.Gotham
-        vLbl.ZIndex = 101
-        vLbl.Parent = cont
+for _, name in ipairs(ThemeOrder) do
+    local themeData = Themes[name]
+    local item = Instance.new("TextButton")
+    item.Size = UDim2.new(1, -6, 0, 30)
+    item.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    item.Text = "  " .. name
+    item.TextColor3 = Color3.fromRGB(255, 255, 255)
+    item.TextSize = 13
+    item.Font = Enum.Font.Gotham
+    item.TextXAlignment = Enum.TextXAlignment.Left
+    item.Parent = dropdownMenu
+    corner(item, 4)
 
-        local function setFromX(x)
-            local rel = math.clamp((x - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
-            local v = rel * 255
-            fill.Size = UDim2.new(rel, 0, 1, 0)
-            vLbl.Text = tostring(math.floor(v))
-            setter(v)
-        end
+    local swatch = Instance.new("Frame")
+    swatch.Size = UDim2.new(0, 8, 1, -12)
+    swatch.Position = UDim2.new(1, -16, 0, 6)
+    swatch.BackgroundColor3 = themeData.accent
+    swatch.BorderSizePixel = 0
+    swatch:SetAttribute("SkipTheme", true)
+    swatch.Parent = item
+    corner(swatch, 4)
 
-        bar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                setFromX(input.Position.X)
-                local c1, c2
-                c1 = UserInputService.InputChanged:Connect(function(inp)
-                    if inp == input then setFromX(inp.Position.X) end
-                end)
-                c2 = UserInputService.InputEnded:Connect(function(inp)
-                    if inp == input then c1:Disconnect(); c2:Disconnect() end
-                end)
-            end
-        end)
-    end
-
-    makeSlider(72,  "R", r, function(v) r = v update() end)
-    makeSlider(106, "G", g, function(v) g = v update() end)
-    makeSlider(140, "B", b, function(v) b = v update() end)
-
-    local cancel = Instance.new("TextButton")
-    cancel.Size = UDim2.new(0.5, -15, 0, 32)
-    cancel.Position = UDim2.new(0, 10, 1, -42)
-    cancel.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    cancel.Text = "Cancel"
-    cancel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    cancel.TextSize = 14
-    cancel.Font = Enum.Font.Gotham
-    cancel.ZIndex = 101
-    cancel.Parent = picker
-    corner(cancel, 6)
-
-    local confirm = Instance.new("TextButton")
-    confirm.Size = UDim2.new(0.5, -15, 0, 32)
-    confirm.Position = UDim2.new(0.5, 5, 1, -42)
-    confirm.BackgroundColor3 = Color3.fromRGB(60, 140, 60)
-    confirm.Text = "OK"
-    confirm.TextColor3 = Color3.fromRGB(255, 255, 255)
-    confirm.TextSize = 14
-    confirm.Font = Enum.Font.GothamBold
-    confirm.ZIndex = 101
-    confirm.Parent = picker
-    corner(confirm, 6)
-
-    cancel.MouseButton1Click:Connect(function() picker:Destroy() end)
-    confirm.MouseButton1Click:Connect(function()
-        onConfirm(Color3.fromRGB(math.floor(r), math.floor(g), math.floor(b)))
-        picker:Destroy()
+    item.MouseButton1Click:Connect(function()
+        if applyTheme then applyTheme(name) end
+        dropdownBtn.Text = name .. "  ▼"
+        dropdownMenu.Visible = false
+        dropdownMenu.Size = UDim2.new(1, -6, 0, 0)
+        showToast("Personality: " .. name, themeData.accent, 2)
     end)
 end
+
+dropdownBtn.MouseButton1Click:Connect(function()
+    if dropdownMenu.Visible then
+        dropdownMenu.Visible = false
+        dropdownMenu.Size = UDim2.new(1, -6, 0, 0)
+    else
+        dropdownMenu.Visible = true
+        dropdownMenu.Size = UDim2.new(1, -6, 0, 240)
+    end
+end)
+
+local settingsInfo = Instance.new("TextLabel")
+settingsInfo.Size = UDim2.new(1, -6, 0, 120)
+settingsInfo.BackgroundTransparency = 1
+settingsInfo.Text = "Choose a personality to instantly change the entire UI's colors, fonts, corner rounding, animations, and click sound.\n\nYour selection is saved to theme.json and applied automatically next time you execute the script."
+settingsInfo.TextColor3 = Color3.fromRGB(150, 150, 150)
+settingsInfo.TextSize = 12
+settingsInfo.Font = Enum.Font.Gotham
+settingsInfo.TextWrapped = true
+settingsInfo.TextXAlignment = Enum.TextXAlignment.Left
+settingsInfo.TextYAlignment = Enum.TextYAlignment.Top
+settingsInfo.Parent = SettingsList
+
+local function tagElement(obj)
+    if not obj or not obj:IsA("GuiObject") then return end
+    if obj:GetAttribute("SkipTheme") then return end
+    if obj:GetAttribute("ThemeTagged") then return end
+
+    local bg = obj.BackgroundColor3
+    local tc = obj.TextColor3
+
+    local bgRole = BaselineRoles[bg]
+    local tcRole = BaselineRoles[tc]
+
+    if bgRole then obj:SetAttribute("BgRole", bgRole) end
+    if tcRole then obj:SetAttribute("TextRole", tcRole) end
+    if obj:IsA("TextBox") then
+        local pcRole = BaselineRoles[obj.PlaceholderColor3]
+        if pcRole then obj:SetAttribute("PlaceholderRole", pcRole) end
+    end
+
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+        local f = obj.Font
+        local orig = f.Name
+        if orig == "GothamBold" or orig == "GothamBlack" or orig == "Code" then
+            obj:SetAttribute("BoldFont", true)
+        else
+            obj:SetAttribute("BoldFont", false)
+        end
+    end
+
+    obj:SetAttribute("ThemeTagged", true)
+end
+
+local function applyToElement(obj, theme)
+    if not obj or not obj:IsA("GuiObject") then return end
+    if obj:GetAttribute("SkipTheme") then return end
+    if not obj:GetAttribute("ThemeTagged") then tagElement(obj) end
+
+    local bgRole = obj:GetAttribute("BgRole")
+    if bgRole and theme[bgRole] then
+        obj.BackgroundColor3 = theme[bgRole]
+    end
+
+    local tcRole = obj:GetAttribute("TextRole")
+    if tcRole and theme[tcRole] then
+        obj.TextColor3 = theme[tcRole]
+    end
+
+    if obj:IsA("TextBox") then
+        local pcRole = obj:GetAttribute("PlaceholderRole")
+        if pcRole and theme[pcRole] then
+            obj.PlaceholderColor3 = theme[pcRole]
+        end
+    end
+
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+        local isBold = obj:GetAttribute("BoldFont")
+        if isBold == nil then
+            isBold = (obj.Font == Enum.Font.GothamBold)
+        end
+        obj.Font = isBold and theme.fontBold or theme.font
+    end
+
+    local c = obj:FindFirstChildOfClass("UICorner")
+    if c then
+        c.CornerRadius = UDim.new(0, theme.corner)
+    end
+end
+
+applyTheme = function(name)
+    local theme = Themes[name]
+    if not theme then return end
+    CurrentTheme = name
+
+    for _, obj in ipairs(ScreenGui:GetDescendants()) do
+        applyToElement(obj, theme)
+    end
+
+    clickSound.SoundId = theme.clickSound or ""
+    saveTheme(name)
+end
+
+ScreenGui.DescendantAdded:Connect(function(obj)
+    if not obj:IsA("GuiObject") then return end
+    task.defer(function()
+        if obj.Parent and Themes[CurrentTheme] then
+            applyToElement(obj, Themes[CurrentTheme])
+        end
+    end)
+end)
+
+local function hookClick(btn)
+    if btn:GetAttribute("ClickHooked") then return end
+    btn:SetAttribute("ClickHooked", true)
+    btn.MouseButton1Click:Connect(function()
+        local theme = Themes[CurrentTheme]
+        if theme and theme.clickSound then
+            clickSound.SoundId = theme.clickSound
+            clickSound:Play()
+        end
+    end)
+end
+
+for _, obj in ipairs(ScreenGui:GetDescendants()) do
+    if obj:IsA("TextButton") then hookClick(obj) end
+end
+ScreenGui.DescendantAdded:Connect(function(obj)
+    if obj:IsA("TextButton") then hookClick(obj) end
+end)
 
 local tabDefs = {
     { name = "Scripts",   frame = ScriptsTab,   color = Color3.fromRGB(70, 70, 120) },
@@ -3022,6 +3418,7 @@ local tabDefs = {
     { name = "Server",    frame = ServerTab,    color = Color3.fromRGB(100, 70, 120) },
     { name = "Utility",   frame = UtilityTab,   color = Color3.fromRGB(100, 100, 100) },
     { name = "Console",   frame = ConsoleTab,   color = Color3.fromRGB(60, 80, 100) },
+    { name = "Settings",  frame = SettingsTab,  color = Color3.fromRGB(120, 90, 140) },
 }
 local tabButtons = {}
 
@@ -3044,6 +3441,10 @@ local function selectTab(i)
     end
     if tabDefs[i] and tabDefs[i].frame == RecordsTab then
         if refreshRecordsFor then pcall(refreshRecordsFor) end
+    end
+    if tabDefs[i] and tabDefs[i].frame ~= SettingsTab then
+        dropdownMenu.Visible = false
+        dropdownMenu.Size = UDim2.new(1, -6, 0, 0)
     end
 end
 
@@ -3074,6 +3475,7 @@ Icon.TextColor3 = Color3.fromRGB(255, 255, 255)
 Icon.TextSize = 30
 Icon.Font = Enum.Font.GothamBold
 Icon.Visible = false
+Icon:SetAttribute("SkipTheme", false)
 Icon.Parent = ScreenGui
 corner(Icon, 25)
 
@@ -3118,6 +3520,13 @@ task.defer(function()
     if areaH > 80 then
         gameState.y = areaH / 2 - gameState.birdH / 2
         bird.Position = UDim2.new(0, gameState.birdX, 0, gameState.y)
+    end
+end)
+
+task.defer(function()
+    task.wait(0.3)
+    if Themes[CurrentTheme] then
+        applyTheme(CurrentTheme)
     end
 end)
 
